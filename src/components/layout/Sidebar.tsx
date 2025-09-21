@@ -26,7 +26,12 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobile?: boolean;
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ isMobile = false, onNavigate }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
@@ -36,21 +41,31 @@ export function Sidebar() {
 
   return (
     <div className={cn(
-      "flex flex-col bg-card border-r border-border transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
+      "flex flex-col bg-card transition-all duration-300 h-full",
+      isMobile ? "w-full border-0" : "border-r border-border",
+      !isMobile && (isCollapsed ? "w-16" : "w-64")
     )}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        {!isCollapsed && (
-          <h2 className="text-xl font-bold text-primary">POS System</h2>
-        )}
-        <button
-          onClick={toggleSidebar}
-          className="p-1 rounded-md hover:bg-secondary transition-colors"
-        >
-          {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
-        </button>
-      </div>
+      {/* Header - Only show on desktop */}
+      {!isMobile && (
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          {!isCollapsed && (
+            <h2 className="text-xl font-bold text-primary">POS System</h2>
+          )}
+          <button
+            onClick={toggleSidebar}
+            className="p-1 rounded-md hover:bg-secondary transition-colors"
+          >
+            {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Header */}
+      {isMobile && (
+        <div className="p-4 border-b border-border">
+          <h2 className="text-xl font-bold text-primary">Menu</h2>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
@@ -60,16 +75,17 @@ export function Sidebar() {
             <Link
               key={item.name}
               to={item.href}
+              onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-3 rounded-md text-sm transition-colors",
                 isActive 
                   ? "bg-primary text-primary-foreground" 
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
-              title={isCollapsed ? item.name : undefined}
+              title={!isMobile && isCollapsed ? item.name : undefined}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && <span className="truncate">{item.name}</span>}
+              {(isMobile || !isCollapsed) && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}
@@ -79,13 +95,13 @@ export function Sidebar() {
       <div className="p-4 border-t border-border">
         <button
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm w-full transition-colors",
+            "flex items-center gap-3 px-3 py-3 rounded-md text-sm w-full transition-colors",
             "text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
           )}
-          title={isCollapsed ? "Logout" : undefined}
+          title={!isMobile && isCollapsed ? "Logout" : undefined}
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
-          {!isCollapsed && <span>Logout</span>}
+          {(isMobile || !isCollapsed) && <span>Logout</span>}
         </button>
       </div>
     </div>

@@ -36,10 +36,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Today's overview • {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
               year: 'numeric', 
@@ -48,13 +48,13 @@ export default function Dashboard() {
             })}
           </p>
         </div>
-        <Badge variant="outline" className="text-sm px-3 py-1">
+        <Badge variant="outline" className="text-sm px-3 py-1 self-start sm:self-auto">
           Live Data
         </Badge>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Today Sales"
           value="Rs. 12,450.00"
@@ -84,7 +84,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
         {/* Low Stock Alerts */}
         <AlertCard
           title="Low Stock Alerts"
@@ -105,19 +105,19 @@ export default function Dashboard() {
               Popular Products Today
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 p-4 sm:p-6">
             {popularProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center justify-between p-3 rounded-md bg-secondary">
+              <div key={product.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md bg-secondary gap-2 sm:gap-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
                     {index + 1}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{product.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
                     <p className="text-xs text-muted-foreground">{product.sold} units sold</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right ml-9 sm:ml-0">
                   <p className="text-sm font-medium text-accent">{product.revenue}</p>
                 </div>
               </div>
@@ -131,8 +131,8 @@ export default function Dashboard() {
         <CardHeader>
           <CardTitle>Quick Stats</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
             <div className="space-y-2">
               <p className="text-2xl font-bold text-primary">156</p>
               <p className="text-sm text-muted-foreground">Total Products</p>

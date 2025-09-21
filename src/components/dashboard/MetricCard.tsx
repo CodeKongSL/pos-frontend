@@ -21,14 +21,14 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <Card className={cn("transition-all duration-200 hover:shadow-lg", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6">
+        <CardTitle className="text-sm font-medium text-muted-foreground truncate pr-2">
           {title}
         </CardTitle>
-        <Icon className="h-5 w-5 text-primary" />
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-foreground">{value}</div>
+      <CardContent className="p-4 sm:p-6 pt-0">
+        <div className="text-xl sm:text-2xl font-bold text-foreground">{value}</div>
         {trend && (
           <p className={cn(
             "text-xs mt-1",
