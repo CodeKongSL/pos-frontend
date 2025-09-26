@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Calendar, Hash } from "lucide-react";
+import { Package, Calendar, Hash, DollarSign } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +65,7 @@ interface SubcategorySelectionDialogProps {
     subcategoryName: string;
     quantity: number;
     expiryDate: string;
+    price: number;
   }) => void;
 }
 
@@ -77,9 +78,18 @@ export function SubcategorySelectionDialog({
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("");
   const [expiryDate, setExpiryDate] = useState<string>("");
+  const [price, setPrice] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const brandData = brandSubcategories[brandId as keyof typeof brandSubcategories];
+
+  const resetForm = () => {
+    setSelectedSubcategory("");
+    setQuantity("");
+    setExpiryDate("");
+    setPrice("");
+    setError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +105,11 @@ export function SubcategorySelectionDialog({
       return;
     }
 
+    if (!price || parseFloat(price) <= 0) {
+      setError("Please enter a valid price");
+      return;
+    }
+
     if (!expiryDate) {
       setError("Please select an expiry date");
       return;
@@ -107,25 +122,31 @@ export function SubcategorySelectionDialog({
       subcategoryId: selectedSubcategory,
       subcategoryName: subcategory?.name || "",
       quantity: parseInt(quantity),
-      expiryDate
+      expiryDate,
+      price: parseFloat(price)
     });
 
-    // Reset form
-    setSelectedSubcategory("");
-    setQuantity("");
-    setExpiryDate("");
-    setError(null);
+    // Reset form and close dialog
+    resetForm();
+    onOpenChange(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      // Reset form when closing
-      setSelectedSubcategory("");
-      setQuantity("");
-      setExpiryDate("");
-      setError(null);
+      resetForm();
     }
     onOpenChange(newOpen);
+  };
+
+  const handleSubcategorySelect = (subcategoryId: string) => {
+    setSelectedSubcategory(subcategoryId);
+    // Clear other fields when changing subcategory
+    if (selectedSubcategory !== subcategoryId) {
+      setQuantity("");
+      setExpiryDate("");
+      setPrice("");
+      setError(null);
+    }
   };
 
   if (!brandData) {
@@ -164,7 +185,7 @@ export function SubcategorySelectionDialog({
                       ? 'ring-2 ring-primary bg-primary/5'
                       : 'hover:bg-muted/50'
                   }`}
-                  onClick={() => setSelectedSubcategory(subcategory.id)}
+                  onClick={() => handleSubcategorySelect(subcategory.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -186,23 +207,44 @@ export function SubcategorySelectionDialog({
             </div>
           </div>
 
-          {/* Quantity and Expiry Date */}
+          {/* Additional Fields - Only show when subcategory is selected */}
           {selectedSubcategory && (
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div className="space-y-2">
-                <Label htmlFor="quantity" className="flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  Quantity *
-                </Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  placeholder="Enter quantity"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  required
-                />
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-medium text-lg">Product Details</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity" className="flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    Quantity *
+                  </Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    placeholder="Enter quantity"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="price" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Price *
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter price"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

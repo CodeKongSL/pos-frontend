@@ -64,12 +64,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   });
   const [selectedSubcategories, setSelectedSubcategories] = useState<SubcategoryData[]>([]);
 
-  // Auto-open subcategory dialog when brand is selected
+  // Open subcategory dialog when brand changes
   useEffect(() => {
-    if (formData.brand && !subcategoryDialogOpen) {
+    if (formData.brand) {
       setSubcategoryDialogOpen(true);
     }
-  }, [formData.brand, subcategoryDialogOpen]);
+  }, [formData.brand]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
