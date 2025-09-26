@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CreateCategoryDialog } from "././CreateCategoryDialog";
+import { CreateCategoryDialog } from "./CreateCategoryDialog";
+import { CreateBrandDialog } from "./CreateBrandDialog";
 
 // Dummy categories data
 const categories = [
@@ -27,6 +28,15 @@ const categories = [
   { id: "3", name: "Household Essentials" },
   { id: "4", name: "Personal Care" },
   { id: "5", name: "Snacks & Confectionery" },
+];
+
+// Dummy brands data
+const brands = [
+  { id: "1", name: "Coca-Cola" },
+  { id: "2", name: "Anchor" },
+  { id: "3", name: "Dettol" },
+  { id: "4", name: "Sunlight" },
+  { id: "5", name: "Milo" },
 ];
 
 interface AddProductDialogProps {
@@ -142,12 +152,28 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
           <div className="space-y-2">
             <Label htmlFor="brand">Brand</Label>
-            <Input
-              id="brand"
-              placeholder="Enter brand name"
-              value={formData.brand}
-              onChange={(e) => handleInputChange("brand", e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Select
+                value={formData.brand}
+                onValueChange={(value) => handleInputChange("brand", value)}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select a brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <CreateBrandDialog>
+                <Button type="button" variant="outline" size="sm">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </CreateBrandDialog>
+            </div>
           </div>
 
           <div className="space-y-2">
