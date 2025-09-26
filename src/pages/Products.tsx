@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AddProductDialog } from "@/components/AddProductDialog";
+
 import {
   Table,
   TableBody,
@@ -44,10 +46,12 @@ export default function Products() {
           <h1 className="text-3xl font-bold text-foreground">Manage Products</h1>
           <p className="text-muted-foreground mt-1">Manage your inventory and product catalog</p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <AddProductDialog>
+          <Button className="bg-primary hover:bg-primary-hover">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </AddProductDialog>
       </div>
 
       {/* Search and Filters */}
