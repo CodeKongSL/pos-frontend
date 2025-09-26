@@ -87,7 +87,7 @@ export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Create New Categoryyy</DialogTitle>
+          <DialogTitle>Create New Category</DialogTitle>
         </DialogHeader>
         
         {success ? (
