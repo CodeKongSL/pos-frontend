@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CreateCategoryDialog } from "./CreateCategoryDialog";
@@ -56,8 +55,6 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    price: "",
     category: "",
     brand: "",
     description: "",
@@ -88,8 +85,6 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     
     // Reset form and close dialog
     setFormData({
-      name: "",
-      price: "",
       category: "",
       brand: "",
       description: "",
@@ -102,6 +97,16 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    // Clear brand and subcategories when category changes
+    setSelectedSubcategories([]);
+    setFormData(prev => ({
+      ...prev,
+      category: categoryId,
+      brand: "", // Reset brand when category changes
     }));
   };
 
@@ -145,8 +150,6 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     if (!newOpen) {
       // Reset everything when closing main dialog
       setFormData({
-        name: "",
-        price: "",
         category: "",
         brand: "",
         description: "",
@@ -166,12 +169,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   };
 
   const isFormValid = () => {
-    return formData.name && 
-           formData.price && 
-           formData.category && 
+    return formData.category && 
            formData.brand && 
            selectedSubcategories.length > 0;
   };
+
+  // Check if category is selected to enable other fields
+  const isCategorySelected = Boolean(formData.category);
 
   return (
     <>
@@ -185,35 +189,11 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                placeholder="Enter product name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="price">Price *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.price}
-                onChange={(e) => handleInputChange("price", e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <div className="flex gap-2">
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => handleInputChange("category", value)}
+                  onValueChange={handleCategoryChange}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select a category" />
@@ -240,9 +220,10 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 <Select
                   value={formData.brand}
                   onValueChange={handleBrandChange}
+                  disabled={!isCategorySelected}
                 >
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select a brand" />
+                    <SelectValue placeholder={isCategorySelected ? "Select a brand" : "Select category first"} />
                   </SelectTrigger>
                   <SelectContent>
                     {brands.map((brand) => (
@@ -253,7 +234,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                   </SelectContent>
                 </Select>
                 <CreateBrandDialog>
-                  <Button type="button" variant="outline" size="sm">
+                  <Button type="button" variant="outline" size="sm" disabled={!isCategorySelected}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </CreateBrandDialog>
@@ -298,10 +279,11 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Enter product description (optional)"
+                placeholder={isCategorySelected ? "Enter product description (optional)" : "Select category first"}
                 rows={3}
                 value={formData.description}
                 onChange={(e) => handleInputChange("description", e.target.value)}
+                disabled={!isCategorySelected}
               />
             </div>
 
