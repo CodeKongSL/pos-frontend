@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => ({
         target: 'https://my-go-backend.onrender.com',
         changeOrigin: true,
         secure: false,
+      },
+      '/CreateCategory': {
+        target: 'https://my-go-backend.onrender.com',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

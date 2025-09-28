@@ -51,19 +51,19 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        console.log('Fetching categories...');
-        const response = await CategoryService.getAllCategories();
-        console.log('Categories received:', response);
-        setCategories(response);
-        console.log('Categories state updated:', categories);
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-      }
-    };
+  const fetchCategories = async () => {
+    try {
+      console.log('Fetching categories...');
+      const response = await CategoryService.getAllCategories();
+      console.log('Categories received:', response);
+      setCategories(response);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
 
+  // Initial categories fetch
+  useEffect(() => {
     fetchCategories();
   }, []);
   const [formData, setFormData] = useState({
@@ -218,7 +218,10 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <CreateCategoryDialog>
+                <CreateCategoryDialog onCategoryCreated={() => {
+                    console.log('Category created, refreshing list...');
+                    fetchCategories();
+                  }}>
                   <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4" />
                   </Button>

@@ -6,5 +6,9 @@ export interface Category {
 }
 
 export interface CategoryCreate {
-  name: string;
+  categoryName: string;
+}
+
+export interface CategoryCreateRequest {
+  categoryName: string;  // Changed to lowercase to match API expectation
 }

@@ -1,9 +1,13 @@
-import { Category, CategoryCreate } from '../models/category.model';
+import { Category, CategoryCreate, CategoryCreateRequest } from '../models/category.model';
 
-// Base URL that can be easily changed when moving to production
+// Base URLs for different endpoints
 const API_BASE_URL = import.meta.env.PROD 
   ? `${import.meta.env.VITE_API_URL || ''}/api`  // In production, use the full URL if specified
   : '/api';  // In development, use the proxy
+
+const CREATE_CATEGORY_URL = import.meta.env.PROD
+  ? `${import.meta.env.VITE_API_URL || ''}/CreateCategory`  // In production
+  : '/CreateCategory';  // In development
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
@@ -23,24 +27,49 @@ export const CategoryService = {
     }
   },
 
-  async createCategory(categoryData: CategoryCreate): Promise<Category> {
+  async createCategory(categoryData: CategoryCreateRequest): Promise<Category> {
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`, {
+      console.log('Creating category - URL:', CREATE_CATEGORY_URL);
+      console.log('Request payload:', categoryData);
+      
+      // Validate that categoryName is present and not empty
+      if (!categoryData.categoryName) {
+        throw new Error('Category name is required');
+      }
+      
+      const bodyContent = JSON.stringify(categoryData);
+      
+      console.log('Request body:', bodyContent);
+      
+      const url = new URL(CREATE_CATEGORY_URL, window.location.origin);
+      url.searchParams.append('categoryName', categoryData.categoryName);
+      
+      const response = await fetch(url.toString(), {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(categoryData),
+          'Accept': 'application/json'
+        }
       });
 
+      // Log the response for debugging
+      console.log('Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
       if (!response.ok) {
-        throw new Error('Failed to create category');
+        console.error('Server error response:', responseText);
+        throw new Error(responseText || 'Failed to create category');
       }
 
-      return await response.json();
+      // Try to parse the response as JSON if it's not empty
+      const data = responseText ? JSON.parse(responseText) : {};
+
+      // Return the parsed data or a constructed Category object
+      return data as Category;
     } catch (error) {
       console.error('Error creating category:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Failed to create category');
     }
   }
 };

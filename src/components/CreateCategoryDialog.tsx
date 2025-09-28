@@ -15,13 +15,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CreateCategoryDialogProps {
   children: React.ReactNode;
+  onCategoryCreated?: () => void;
 }
 
 interface CategoryFormData {
   name: string;
 }
 
-export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
+export function CreateCategoryDialog({ children, onCategoryCreated }: CreateCategoryDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
@@ -36,9 +37,15 @@ export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
     setIsLoading(true);
 
     try {
-      await CategoryService.createCategory({
-        name: formData.name.trim(),
+      const trimmedName = formData.name.trim();
+      console.log('Creating new category with name:', trimmedName);
+      if (!trimmedName) {
+        throw new Error('Category name is required');
+      }
+      const newCategory = await CategoryService.createCategory({
+        categoryName: trimmedName,
       });
+      console.log('Category created successfully:', newCategory);
 
       // Show success state
       setSuccess(true);
@@ -48,6 +55,13 @@ export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
         setFormData({ name: "" });
         setSuccess(false);
         setOpen(false);
+        // Trigger refresh of categories list
+        if (onCategoryCreated) {
+          console.log('Triggering category list refresh...');
+          onCategoryCreated();
+        } else {
+          console.warn('No onCategoryCreated callback provided');
+        }
       }, 1500);
 
     } catch (err) {
@@ -78,9 +92,15 @@ export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent 
+        className="sm:max-w-[400px]" 
+        aria-describedby="category-dialog-description"
+      >
         <DialogHeader>
           <DialogTitle>Create New Category</DialogTitle>
+          <p id="category-dialog-description" className="text-sm text-muted-foreground">
+            Create a new category in your inventory system
+          </p>
         </DialogHeader>
         
         {success ? (
