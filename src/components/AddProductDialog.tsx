@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
+import { CategoryService } from "./category/services/category.service";
+import { Category } from "./category/models/category.model";
 import {
   Dialog,
   DialogContent,
@@ -22,14 +24,7 @@ import { CreateBrandDialog } from "./CreateBrandDialog";
 import { SubcategorySelectionDialog } from "./SubcategorySelectionDialog";
 import { SelectedSubcategoriesDisplay } from "./SelectedSubcategoriesDisplay";
 
-// Dummy categories data
-const categories = [
-  { id: "1", name: "Beverages" },
-  { id: "2", name: "Dairy Products" },
-  { id: "3", name: "Household Essentials" },
-  { id: "4", name: "Personal Care" },
-  { id: "5", name: "Snacks & Confectionery" },
-];
+
 
 // Dummy brands data
 const brands = [
@@ -54,6 +49,23 @@ interface AddProductDialogProps {
 export function AddProductDialog({ children }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        console.log('Fetching categories...');
+        const response = await CategoryService.getAllCategories();
+        console.log('Categories received:', response);
+        setCategories(response);
+        console.log('Categories state updated:', categories);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
   const [formData, setFormData] = useState({
     category: "",
     brand: "",
@@ -200,7 +212,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
+                      <SelectItem key={category.categoryId} value={category.categoryId}>
                         {category.name}
                       </SelectItem>
                     ))}

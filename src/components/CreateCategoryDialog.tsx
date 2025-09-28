@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { CategoryService } from "./category/services/category.service";
+import { Category } from "./category/models/category.model";
 import {
   Dialog,
   DialogContent,
@@ -34,18 +36,9 @@ export function CreateCategoryDialog({ children }: CreateCategoryDialogProps) {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      const categoryData = {
+      await CategoryService.createCategory({
         name: formData.name.trim(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      // Here you would make your actual API call
-      console.log("Creating category:", categoryData);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      });
 
       // Show success state
       setSuccess(true);
