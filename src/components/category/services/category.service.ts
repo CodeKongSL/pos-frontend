@@ -1,19 +1,16 @@
 import { Category, CategoryCreate, CategoryCreateRequest } from '../models/category.model';
 
 // Base URLs for different endpoints
-const API_BASE_URL = import.meta.env.PROD 
-  ? `${import.meta.env.VITE_API_URL || ''}/api`  // In production, use the full URL if specified
-  : '/api';  // In development, use the proxy
+const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
-const CREATE_CATEGORY_URL = import.meta.env.PROD
-  ? `${import.meta.env.VITE_API_URL || ''}/CreateCategory`  // In production
-  : '/CreateCategory';  // In development
+const FIND_ALL_CATEGORY_URL = `${API_BASE_URL}/FindAllCategory`;
+const CREATE_CATEGORY_URL = `${API_BASE_URL}/CreateCategory`;
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
     try {
-      console.log('Making API request to:', `${API_BASE_URL}/categories`);
-      const response = await fetch(`${API_BASE_URL}/categories`);
+      console.log('Making API request to:', FIND_ALL_CATEGORY_URL);
+      const response = await fetch(FIND_ALL_CATEGORY_URL);
       console.log('Response status:', response.status);
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
@@ -29,29 +26,24 @@ export const CategoryService = {
 
   async createCategory(categoryData: CategoryCreateRequest): Promise<Category> {
     try {
-      console.log('Creating category - URL:', CREATE_CATEGORY_URL);
-      console.log('Request payload:', categoryData);
+      console.log('Creating category with data:', categoryData);
       
       // Validate that categoryName is present and not empty
       if (!categoryData.categoryName) {
         throw new Error('Category name is required');
       }
       
-      const bodyContent = JSON.stringify(categoryData);
+      // Construct URL with query parameter
+      const url = `${CREATE_CATEGORY_URL}?categoryName=${encodeURIComponent(categoryData.categoryName)}`;
+      console.log('Request URL:', url);
       
-      console.log('Request body:', bodyContent);
-      
-      const url = new URL(CREATE_CATEGORY_URL, window.location.origin);
-      url.searchParams.append('categoryName', categoryData.categoryName);
-      
-      const response = await fetch(url.toString(), {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Accept': 'application/json'
         }
       });
 
-      // Log the response for debugging
       console.log('Response status:', response.status);
       
       const responseText = await response.text();
@@ -65,7 +57,6 @@ export const CategoryService = {
       // Try to parse the response as JSON if it's not empty
       const data = responseText ? JSON.parse(responseText) : {};
 
-      // Return the parsed data or a constructed Category object
       return data as Category;
     } catch (error) {
       console.error('Error creating category:', error);
