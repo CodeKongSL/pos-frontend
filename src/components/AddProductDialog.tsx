@@ -358,12 +358,30 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
               </div>
             )}
 
-            {/* Total Stock Display */}
+            {/* Totals Display */}
             {selectedSubcategories.length > 0 && (
-              <div className="bg-muted/50 p-3 rounded-lg">
+              <div className="bg-muted/50 p-3 rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Total Stock Quantity:</span>
                   <span className="text-lg font-bold text-primary">{getTotalStock()} units</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Total Cost Price:</span>
+                  <span className="text-lg font-bold text-primary">
+                    Rs. {Number(formData.costPrice).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Expected Total Sales:</span>
+                  <span className="text-lg font-bold text-green-600">
+                    Rs. {(getTotalStock() * Number(formData.sellingPrice)).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Expected Profit:</span>
+                  <span className="text-lg font-bold text-emerald-600">
+                    Rs. {((getTotalStock() * Number(formData.sellingPrice)) - Number(formData.costPrice)).toLocaleString()}
+                  </span>
                 </div>
               </div>
             )}
