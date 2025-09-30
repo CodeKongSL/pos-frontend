@@ -27,6 +27,7 @@ interface DisplayProduct {
   totalStock: number;
   categoryName: string;
   brandName: string;
+  sellingPrice: number;
 }
 
 export default function Products() {
@@ -35,9 +36,11 @@ export default function Products() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [productsRes, categoriesRes, brandsRes] = await Promise.all([
         ProductService.getAllProducts(),
@@ -45,11 +48,16 @@ export default function Products() {
         BrandService.getAllBrands()
       ]);
       
+      console.log('Products response:', productsRes);
+      console.log('Categories response:', categoriesRes);
+      console.log('Brands response:', brandsRes);
+      
       setProducts(productsRes);
       setCategories(categoriesRes);
       setBrands(brandsRes);
     } catch (error) {
       console.error("Error fetching data:", error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch data');
     } finally {
       setIsLoading(false);
     }
@@ -62,14 +70,14 @@ export default function Products() {
   const getProductDisplayData = (product: Product): DisplayProduct => {
     const category = categories.find(c => c.categoryId === product.categoryId);
     const brand = brands.find(b => b.brandId === product.brandId);
-    const totalStock = product.productSubcategories?.reduce((total, sub) => total + sub.quantity, 0) ?? 0;
 
     return {
       productId: product.productId,
-      name: `${brand?.name || 'Unknown Brand'} ${category?.name || 'Unknown Category'}`,
-      totalStock,
+      name: product.name,
+      totalStock: product.stockQty,
       categoryName: category?.name || 'Unknown Category',
-      brandName: brand?.name || 'Unknown Brand'
+      brandName: brand?.name || 'Unknown Brand',
+      sellingPrice: product.sellingPrice
     };
   };
 
@@ -130,9 +138,10 @@ export default function Products() {
             <TableHeader>
               <TableRow>
                 <TableHead>Product Name</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Category</TableHead>
                 <TableHead>Brand</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -157,13 +166,14 @@ export default function Products() {
                 filteredProducts.map((product) => (
                   <TableRow key={product.productId}>
                     <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell>{product.brandName}</TableCell>
+                    <TableCell>{product.categoryName}</TableCell>
                     <TableCell>
                       <span className={`font-medium ${product.totalStock < 10 ? 'text-warning' : 'text-foreground'}`}>
                         {product.totalStock}
                       </span>
                     </TableCell>
-                    <TableCell>{product.categoryName}</TableCell>
-                    <TableCell>{product.brandName}</TableCell>
+                    <TableCell>Rs. {Number(product.sellingPrice).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge("", product.totalStock)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
