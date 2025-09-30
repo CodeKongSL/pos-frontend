@@ -1,14 +1,17 @@
 export interface Brand {
   brandId: string;
   name: string;
+  categoryId: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface BrandCreate {
-  brandName: string;
+  name: string;
+  categoryId: string;
 }
 
 export interface BrandCreateRequest {
-  brandName: string;
+  name: string;
+  categoryId: string;
 }

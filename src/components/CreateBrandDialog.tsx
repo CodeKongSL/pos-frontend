@@ -15,19 +15,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CreateBrandDialogProps {
   children: React.ReactNode;
+  categoryId: string;
   onBrandCreated?: () => void;
 }
 
 interface BrandFormData {
   name: string;
-  description: string;
+  description: string; // optional field for UI only
 }
 
-export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialogProps) {
+export function CreateBrandDialog({ children, categoryId, onBrandCreated }: CreateBrandDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<BrandFormData>({
     name: "",
-    description: "",
+    description: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,8 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
         throw new Error('Brand name is required');
       }
       const newBrand = await BrandService.createBrand({
-        brandName: trimmedName
+        name: trimmedName,
+        categoryId: categoryId
       });
       console.log('Brand created successfully:', newBrand);
 
@@ -148,6 +150,8 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
                 autoFocus
               />
             </div>
+
+
 
             <div className="space-y-2">
               <Label htmlFor="brandDescription">Description</Label>

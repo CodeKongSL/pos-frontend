@@ -266,7 +266,9 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <CreateBrandDialog onBrandCreated={() => {
+                <CreateBrandDialog 
+                  categoryId={formData.category}
+                  onBrandCreated={() => {
                     console.log('Brand created, refreshing list...');
                     fetchData();
                   }}>

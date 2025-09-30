@@ -27,20 +27,25 @@ export const BrandService = {
     try {
       console.log('Creating brand with data:', brandData);
       
-      // Validate that brandName is present and not empty
-      if (!brandData.brandName) {
+      // Validate that required fields are present and not empty
+      if (!brandData.name) {
         throw new Error('Brand name is required');
       }
+      if (!brandData.categoryId) {
+        throw new Error('Category ID is required');
+      }
       
-      // Construct URL with query parameter
-      const url = `${CREATE_BRAND_URL}?brandName=${encodeURIComponent(brandData.brandName)}`;
+      // Send data in request body as JSON
+      const url = CREATE_BRAND_URL;
       console.log('Request URL:', url);
       
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(brandData)
       });
 
       console.log('Response status:', response.status);
