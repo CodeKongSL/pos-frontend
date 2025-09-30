@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { Search, Plus, Edit, Trash2, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, Edit, Trash2, Eye, RefreshCcw } from "lucide-react";
+import { Product } from "@/components/product/models/product.model";
+import { ProductService } from "@/components/product/services/product.service";
+import { Category } from "@/components/category/models/category.model";
+import { CategoryService } from "@/components/category/services/category.service";
+import { Brand } from "@/components/brand/models/brand.model";
+import { BrandService } from "@/components/brand/services/brand.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,22 +21,65 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const products = [
-  { id: "1", name: "Pepsi 500ml", price: "Rs. 180.00", stock: 20, category: "Beverages", brand: "Coca-Cola", status: "Active" },
-  { id: "2", name: "Anchor Milk Powder 400g", price: "Rs. 950.00", stock: 8, category: "Dairy Products", brand: "Anchor", status: "Low Stock" },
-  { id: "3", name: "Sunlight Soap 100g", price: "Rs. 120.00", stock: 0, category: "Household Essentials", brand: "Sunlight", status: "Out of Stock" },
-  { id: "4", name: "Milo 200ml", price: "Rs. 150.00", stock: 15, category: "Beverages", brand: "Milo", status: "Active" },
-  { id: "5", name: "Dettol Handwash 200ml", price: "Rs. 340.00", stock: 12, category: "Personal Care", brand: "Dettol", status: "Active" },
-];
+interface DisplayProduct {
+  productId: string;
+  name: string;
+  totalStock: number;
+  categoryName: string;
+  brandName: string;
+}
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.brand.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [productsRes, categoriesRes, brandsRes] = await Promise.all([
+        ProductService.getAllProducts(),
+        CategoryService.getAllCategories(),
+        BrandService.getAllBrands()
+      ]);
+      
+      setProducts(productsRes);
+      setCategories(categoriesRes);
+      setBrands(brandsRes);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const getProductDisplayData = (product: Product): DisplayProduct => {
+    const category = categories.find(c => c.categoryId === product.categoryId);
+    const brand = brands.find(b => b.brandId === product.brandId);
+    const totalStock = product.productSubcategories?.reduce((total, sub) => total + sub.quantity, 0) ?? 0;
+
+    return {
+      productId: product.productId,
+      name: `${brand?.name || 'Unknown Brand'} ${category?.name || 'Unknown Category'}`,
+      totalStock,
+      categoryName: category?.name || 'Unknown Category',
+      brandName: brand?.name || 'Unknown Brand'
+    };
+  };
+
+  const filteredProducts = products
+    .map(getProductDisplayData)
+    .filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.brandName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const getStatusBadge = (status: string, stock: number) => {
     if (stock === 0) return <Badge variant="destructive">Out of Stock</Badge>;
@@ -81,7 +130,6 @@ export default function Products() {
             <TableHeader>
               <TableRow>
                 <TableHead>Product Name</TableHead>
-                <TableHead>Price</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Brand</TableHead>
@@ -90,33 +138,49 @@ export default function Products() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell className="text-accent font-semibold">{product.price}</TableCell>
-                  <TableCell>
-                    <span className={`font-medium ${product.stock < 10 ? 'text-warning' : 'text-foreground'}`}>
-                      {product.stock}
-                    </span>
-                  </TableCell>
-                  <TableCell>{product.category}</TableCell>
-                  <TableCell>{product.brand}</TableCell>
-                  <TableCell>{getStatusBadge(product.status, product.stock)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+                      <p className="text-sm text-muted-foreground">Loading products...</p>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredProducts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">No products found</p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredProducts.map((product) => (
+                  <TableRow key={product.productId}>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell>
+                      <span className={`font-medium ${product.totalStock < 10 ? 'text-warning' : 'text-foreground'}`}>
+                        {product.totalStock}
+                      </span>
+                    </TableCell>
+                    <TableCell>{product.categoryName}</TableCell>
+                    <TableCell>{product.brandName}</TableCell>
+                    <TableCell>{getStatusBadge("", product.totalStock)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

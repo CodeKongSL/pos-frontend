@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BrandService } from "./brand/services/brand.service";
+import { SubcategoryService } from "./subcategory/services/subcategory.service";
 import {
   Dialog,
   DialogContent,
@@ -10,24 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface CreateBrandDialogProps {
+interface CreateSubcategoryDialogProps {
   children: React.ReactNode;
-  onBrandCreated?: () => void;
+  brandId: string;
+  brandName: string;
+  onSubcategoryCreated?: () => void;
 }
 
-interface BrandFormData {
+interface SubcategoryFormData {
   name: string;
-  description: string;
 }
 
-export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialogProps) {
+export function CreateSubcategoryDialog({ children, brandId, brandName, onSubcategoryCreated }: CreateSubcategoryDialogProps) {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState<BrandFormData>({
+  const [formData, setFormData] = useState<SubcategoryFormData>({
     name: "",
-    description: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,44 +39,42 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
 
     try {
       const trimmedName = formData.name.trim();
-      console.log('Creating new brand with name:', trimmedName);
+      console.log('Creating new subcategory:', { name: trimmedName, brandId });
       if (!trimmedName) {
-        throw new Error('Brand name is required');
+        throw new Error('Subcategory name is required');
       }
-      const newBrand = await BrandService.createBrand({
-        brandName: trimmedName
+      const newSubcategory = await SubcategoryService.createSubcategory({
+        subcategoryName: trimmedName,
+        brandId: brandId
       });
-      console.log('Brand created successfully:', newBrand);
+      console.log('Subcategory created successfully:', newSubcategory);
 
       // Show success state
       setSuccess(true);
       
       // Reset form after a short delay and close dialog
       setTimeout(() => {
-        setFormData({ name: "", description: "" });
+        setFormData({ name: "" });
         setSuccess(false);
         setOpen(false);
-        // Trigger refresh of brands list
-        if (onBrandCreated) {
-          console.log('Triggering brand list refresh...');
-          onBrandCreated();
+        // Trigger refresh of subcategories list
+        if (onSubcategoryCreated) {
+          console.log('Triggering subcategory list refresh...');
+          onSubcategoryCreated();
         } else {
-          console.warn('No onBrandCreated callback provided');
+          console.warn('No onSubcategoryCreated callback provided');
         }
       }, 1500);
 
     } catch (err) {
-      setError("Failed to create brand. Please try again.");
+      setError("Failed to create subcategory. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof BrandFormData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleInputChange = (value: string) => {
+    setFormData({ name: value });
     // Clear any existing errors when user starts typing
     if (error) setError(null);
   };
@@ -85,7 +82,7 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       // Reset form when closing
-      setFormData({ name: "", description: "" });
+      setFormData({ name: "" });
       setError(null);
       setSuccess(false);
     }
@@ -97,9 +94,15 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent 
+        className="sm:max-w-[400px]" 
+        aria-describedby="subcategory-dialog-description"
+      >
         <DialogHeader>
-          <DialogTitle>Create New Brand</DialogTitle>
+          <DialogTitle>Create New Subcategory</DialogTitle>
+          <p id="subcategory-dialog-description" className="text-sm text-muted-foreground">
+            Create a new subcategory for {brandName}
+          </p>
         </DialogHeader>
         
         {success ? (
@@ -122,10 +125,10 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
               </div>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Brand Created Successfully!
+              Subcategory Created Successfully!
             </h3>
             <p className="text-sm text-gray-500">
-              "{formData.name}" has been added to your brands.
+              "{formData.name}" has been added as a subcategory of {brandName}.
             </p>
           </div>
         ) : (
@@ -137,30 +140,18 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="brandName">Brand Name *</Label>
+              <Label htmlFor="subcategoryName">Subcategory Name *</Label>
               <Input
-                id="brandName"
-                placeholder="e.g. Coca-Cola, Anchor, Dettol"
+                id="subcategoryName"
+                placeholder="e.g. 500ml, 1L, 2L"
                 value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 disabled={isLoading}
                 required
                 autoFocus
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="brandDescription">Description</Label>
-              <Textarea
-                id="brandDescription"
-                placeholder="Brief description about the brand (optional)"
-                rows={3}
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                disabled={isLoading}
-              />
               <p className="text-xs text-muted-foreground">
-                Add any additional information about this brand
+                Enter a size or variant name for this brand
               </p>
             </div>
 
@@ -184,7 +175,7 @@ export function CreateBrandDialog({ children, onBrandCreated }: CreateBrandDialo
                     Creating...
                   </>
                 ) : (
-                  "Create Brand"
+                  "Create Subcategory"
                 )}
               </Button>
             </div>

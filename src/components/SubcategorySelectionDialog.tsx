@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { Package, Calendar, Hash, DollarSign } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Package, Calendar, Hash, DollarSign, Plus } from "lucide-react";
+import { SubcategoryService } from "./subcategory/services/subcategory.service";
+import { BrandService } from "./brand/services/brand.service";
+import { Brand } from "./brand/models/brand.model";
+import { Subcategory } from "./subcategory/models/subcategory.model";
 import {
   Dialog,
   DialogContent,
@@ -12,49 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Dummy subcategories data for each brand
-const brandSubcategories = {
-  "1": { // Coca-Cola
-    brandName: "Coca-Cola",
-    subcategories: [
-      { id: "cc-1l", name: "1L", description: "1 Liter bottle" },
-      { id: "cc-15l", name: "1.5L", description: "1.5 Liter bottle" },
-      { id: "cc-2l", name: "2L", description: "2 Liter bottle" }
-    ]
-  },
-  "2": { // Anchor
-    brandName: "Anchor",
-    subcategories: [
-      { id: "an-400g", name: "400g", description: "400 gram pack" },
-      { id: "an-900g", name: "900g", description: "900 gram pack" },
-      { id: "an-1kg", name: "1kg", description: "1 kilogram pack" }
-    ]
-  },
-  "3": { // Dettol
-    brandName: "Dettol",
-    subcategories: [
-      { id: "dt-200ml", name: "200ml", description: "200ml bottle" },
-      { id: "dt-500ml", name: "500ml", description: "500ml bottle" },
-      { id: "dt-1l", name: "1L", description: "1 Liter bottle" }
-    ]
-  },
-  "4": { // Sunlight
-    brandName: "Sunlight",
-    subcategories: [
-      { id: "sl-100g", name: "100g", description: "100 gram bar" },
-      { id: "sl-200g", name: "200g", description: "200 gram bar" },
-      { id: "sl-500g", name: "500g", description: "500 gram pack" }
-    ]
-  },
-  "5": { // Milo
-    brandName: "Milo",
-    subcategories: [
-      { id: "ml-200ml", name: "200ml", description: "200ml tetra pack" },
-      { id: "ml-400g", name: "400g", description: "400 gram tin" },
-      { id: "ml-900g", name: "900g", description: "900 gram tin" }
-    ]
-  }
-};
+import { CreateSubcategoryDialog } from "./CreateSubcategoryDialog";
 
 interface SubcategorySelectionDialogProps {
   open: boolean;
@@ -80,8 +42,35 @@ export function SubcategorySelectionDialog({
   const [expiryDate, setExpiryDate] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [brand, setBrand] = useState<Brand | null>(null);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const brandData = brandSubcategories[brandId as keyof typeof brandSubcategories];
+  useEffect(() => {
+    const fetchBrandAndSubcategories = async () => {
+      if (brandId) {
+        setIsLoading(true);
+        try {
+          // Fetch brand details
+          const allBrands = await BrandService.getAllBrands();
+          const selectedBrand = allBrands.find(b => b.brandId === brandId);
+          setBrand(selectedBrand || null);
+
+          // Fetch subcategories
+          const allSubcategories = await SubcategoryService.getAllSubcategories();
+          const brandSubcategories = allSubcategories.filter(s => s.brandId === brandId);
+          setSubcategories(brandSubcategories);
+        } catch (err) {
+          console.error('Error fetching brand and subcategories:', err);
+          setError('Failed to load brand data. Please try again.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchBrandAndSubcategories();
+  }, [brandId]);
 
   const resetForm = () => {
     setSelectedSubcategory("");
@@ -116,7 +105,7 @@ export function SubcategorySelectionDialog({
     }
 
     // Find selected subcategory name
-    const subcategory = brandData.subcategories.find(sub => sub.id === selectedSubcategory);
+    const subcategory = subcategories.find(sub => sub.subcategoryId === selectedSubcategory);
     
     onSubcategorySelect({
       subcategoryId: selectedSubcategory,
@@ -149,12 +138,22 @@ export function SubcategorySelectionDialog({
     }
   };
 
-  if (!brandData) {
-    return null;
-  }
-
   // Get today's date in YYYY-MM-DD format for min date
   const today = new Date().toISOString().split('T')[0];
+
+  const handleSubcategoryCreated = () => {
+    // Refresh subcategories list
+    const fetchSubcategories = async () => {
+      try {
+        const allSubcategories = await SubcategoryService.getAllSubcategories();
+        const brandSubcategories = allSubcategories.filter(s => s.brandId === brandId);
+        setSubcategories(brandSubcategories);
+      } catch (err) {
+        console.error('Error fetching subcategories:', err);
+      }
+    };
+    fetchSubcategories();
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -162,7 +161,7 @@ export function SubcategorySelectionDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Select {brandData.brandName} Subcategory
+            Select {brand?.name || ''} Subcategory
           </DialogTitle>
         </DialogHeader>
 
@@ -175,35 +174,69 @@ export function SubcategorySelectionDialog({
 
           {/* Subcategory Selection */}
           <div className="space-y-3">
-            <Label className="text-base font-medium">Choose Size/Type *</Label>
-            <div className="grid gap-3">
-              {brandData.subcategories.map((subcategory) => (
-                <Card
-                  key={subcategory.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    selectedSubcategory === subcategory.id
-                      ? 'ring-2 ring-primary bg-primary/5'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => handleSubcategorySelect(subcategory.id)}
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Choose Size/Type *</Label>
+              {brand && (
+                <CreateSubcategoryDialog
+                  brandId={brand.brandId}
+                  brandName={brand.name}
+                  onSubcategoryCreated={handleSubcategoryCreated}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">{subcategory.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {subcategory.description}
-                        </p>
+                  <Button type="button" variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Size/Type
+                  </Button>
+                </CreateSubcategoryDialog>
+              )}
+            </div>
+            <div className="grid gap-3">
+              {isLoading ? (
+                <div className="text-center py-4">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Loading subcategories...</p>
+                </div>
+              ) : subcategories.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-2">No subcategories found</p>
+                  {brand && (
+                    <CreateSubcategoryDialog
+                      brandId={brand.brandId}
+                      brandName={brand.name}
+                      onSubcategoryCreated={handleSubcategoryCreated}
+                    >
+                      <Button type="button" variant="outline">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add your first subcategory
+                      </Button>
+                    </CreateSubcategoryDialog>
+                  )}
+                </div>
+              ) : (
+                subcategories.map((subcategory) => (
+                  <Card
+                    key={subcategory.subcategoryId}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      selectedSubcategory === subcategory.subcategoryId
+                        ? 'ring-2 ring-primary bg-primary/5'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => handleSubcategorySelect(subcategory.subcategoryId)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">{subcategory.name}</h4>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          selectedSubcategory === subcategory.subcategoryId
+                            ? 'bg-primary border-primary'
+                            : 'border-muted-foreground'
+                        }`} />
                       </div>
-                      <div className={`w-4 h-4 rounded-full border-2 ${
-                        selectedSubcategory === subcategory.id
-                          ? 'bg-primary border-primary'
-                          : 'border-muted-foreground'
-                      }`} />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
 

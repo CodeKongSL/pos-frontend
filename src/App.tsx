@@ -8,7 +8,6 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import GRN from "./pages/GRN";
 import Stocks from "./pages/Stocks";
-import Brands from "./pages/Brands";
 import Suppliers from "./pages/Suppliers";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
@@ -27,7 +26,6 @@ const App = () => (
             <Route path="/products" element={<Products />} />
             <Route path="/grn" element={<GRN />} />
             <Route path="/stocks" element={<Stocks />} />
-            <Route path="/brands" element={<Brands />} />
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/reports" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

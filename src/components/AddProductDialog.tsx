@@ -26,14 +26,9 @@ import { SelectedSubcategoriesDisplay } from "./SelectedSubcategoriesDisplay";
 
 
 
-// Dummy brands data
-const brands = [
-  { id: "1", name: "Coca-Cola" },
-  { id: "2", name: "Anchor" },
-  { id: "3", name: "Dettol" },
-  { id: "4", name: "Sunlight" },
-  { id: "5", name: "Milo" },
-];
+import { Brand } from "./brand/models/brand.model";
+import { BrandService } from "./brand/services/brand.service";
+import { ProductService } from "./product/services/product.service";
 
 interface SubcategoryData {
   subcategoryId: string;
@@ -50,21 +45,28 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchCategories = async () => {
+  const fetchData = async () => {
     try {
-      console.log('Fetching categories...');
-      const response = await CategoryService.getAllCategories();
-      console.log('Categories received:', response);
-      setCategories(response);
+      console.log('Fetching categories and brands...');
+      const [categoriesRes, brandsRes] = await Promise.all([
+        CategoryService.getAllCategories(),
+        BrandService.getAllBrands()
+      ]);
+      console.log('Categories received:', categoriesRes);
+      console.log('Brands received:', brandsRes);
+      setCategories(categoriesRes);
+      setBrands(brandsRes);
     } catch (error) {
-      console.error("Failed to fetch categories:", error);
+      console.error("Failed to fetch data:", error);
     }
   };
 
-  // Initial categories fetch
+  // Initial data fetch
   useEffect(() => {
-    fetchCategories();
+    fetchData();
   }, []);
   const [formData, setFormData] = useState({
     category: "",
@@ -80,29 +82,43 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     }
   }, [formData.brand]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // Calculate total stock from subcategories
-    const totalStock = selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
-    
-    // Prepare product data
-    const productData = {
-      ...formData,
-      stock: totalStock,
-      subcategories: selectedSubcategories,
-    };
-    
-    console.log("Product data:", productData);
-    
-    // Reset form and close dialog
-    setFormData({
-      category: "",
-      brand: "",
-      description: "",
-    });
-    setSelectedSubcategories([]);
-    setOpen(false);
+    try {
+      // Prepare product data
+      const productData = {
+        categoryId: formData.category,
+        brandId: formData.brand,
+        description: formData.description,
+        productSubcategories: selectedSubcategories.map(sub => ({
+          subcategoryId: sub.subcategoryId,
+          quantity: sub.quantity,
+          expiryDate: sub.expiryDate
+        }))
+      };
+      
+      console.log("Creating product:", productData);
+      
+      // Create product
+      await ProductService.createProduct(productData);
+      
+      console.log("Product created successfully");
+      
+      // Reset form and close dialog
+      setFormData({
+        category: "",
+        brand: "",
+        description: "",
+      });
+      setSelectedSubcategories([]);
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to create product:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -173,7 +189,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   };
 
   const getSelectedBrandName = () => {
-    return brands.find(brand => brand.id === formData.brand)?.name || "";
+    return brands.find(brand => brand.brandId === formData.brand)?.name || "";
   };
 
   const getTotalStock = () => {
@@ -220,7 +236,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 </Select>
                 <CreateCategoryDialog onCategoryCreated={() => {
                     console.log('Category created, refreshing list...');
-                    fetchCategories();
+                    fetchData();
                   }}>
                   <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4" />
@@ -242,13 +258,16 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {brands.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
+                      <SelectItem key={brand.brandId} value={brand.brandId}>
                         {brand.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <CreateBrandDialog>
+                <CreateBrandDialog onBrandCreated={() => {
+                    console.log('Brand created, refreshing list...');
+                    fetchData();
+                  }}>
                   <Button type="button" variant="outline" size="sm" disabled={!isCategorySelected}>
                     <Plus className="h-4 w-4" />
                   </Button>
