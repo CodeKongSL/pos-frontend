@@ -51,14 +51,31 @@ export function SubcategorySelectionDialog({
       if (brandId) {
         setIsLoading(true);
         try {
+          // Reset selection state when brand changes
+          setSelectedSubcategory('');
+          setQuantity('');
+          setExpiryDate('');
+          setPrice('');
+          setError(null);
+          
           // Fetch brand details
           const allBrands = await BrandService.getAllBrands();
           const selectedBrand = allBrands.find(b => b.brandId === brandId);
+          console.log('Selected brand:', selectedBrand);
           setBrand(selectedBrand || null);
 
           // Fetch subcategories
           const allSubcategories = await SubcategoryService.getAllSubcategories();
-          const brandSubcategories = allSubcategories.filter(s => s.brandId === brandId);
+          console.log('All subcategories:', allSubcategories);
+          console.log('Current brandId:', brandId);
+          
+          const brandSubcategories = allSubcategories.filter(s => {
+            const matches = s.brandId === brandId;
+            console.log(`Subcategory: ${s.name} (${s.subcategoryId}), brandId: ${s.brandId}, matches current brand: ${matches}`);
+            return matches;
+          });
+          
+          console.log('Filtered subcategories for brand:', brandSubcategories);
           setSubcategories(brandSubcategories);
         } catch (err) {
           console.error('Error fetching brand and subcategories:', err);
@@ -128,14 +145,56 @@ export function SubcategorySelectionDialog({
   };
 
   const handleSubcategorySelect = (subcategoryId: string) => {
-    setSelectedSubcategory(subcategoryId);
-    // Clear other fields when changing subcategory
-    if (selectedSubcategory !== subcategoryId) {
-      setQuantity("");
-      setExpiryDate("");
-      setPrice("");
+    console.log('handleSubcategorySelect called with:', { 
+      subcategoryId, 
+      type: typeof subcategoryId,
+      subcategories: subcategories.map(s => ({
+        id: s.subcategoryId || (s as any).subCategoryId,
+        name: s.name,
+        originalObject: s
+      }))
+    });
+    
+    if (!subcategoryId) {
+      console.error('Invalid subcategoryId received:', subcategoryId);
+      return;
+    }
+
+    // Verify the subcategory exists in our current list
+    const subcategory = subcategories.find(s => 
+      (s.subcategoryId === subcategoryId) || ((s as any).subCategoryId === subcategoryId)
+    );
+    if (!subcategory) {
+      console.error('Selected subcategoryId not found in current subcategories list:', {
+        searchedId: subcategoryId,
+        availableIds: subcategories.map(s => ({
+          subcategoryId: s.subcategoryId,
+          subCategoryId: (s as any).subCategoryId
+        }))
+      });
+      return;
+    }
+
+    console.log('Found subcategory:', subcategory);
+    
+    // Toggle selection if clicking the same subcategory
+    if (selectedSubcategory === subcategoryId) {
+      setSelectedSubcategory('');
+      setQuantity('');
+      setExpiryDate('');
+      setPrice('');
+      setError(null);
+    } else {
+      // Select new subcategory
+      setSelectedSubcategory(subcategoryId);
+      // Clear other fields when changing subcategory
+      setQuantity('');
+      setExpiryDate('');
+      setPrice('');
       setError(null);
     }
+
+    console.log('Updated selected subcategory:', subcategoryId);
   };
 
   // Get today's date in YYYY-MM-DD format for min date
@@ -213,28 +272,41 @@ export function SubcategorySelectionDialog({
                 </div>
               ) : (
                 subcategories.map((subcategory) => (
-                  <Card
-                    key={subcategory.subcategoryId}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedSubcategory === subcategory.subcategoryId
-                        ? 'ring-2 ring-primary bg-primary/5'
-                        : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => handleSubcategorySelect(subcategory.subcategoryId)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{subcategory.name}</h4>
+                  <div key={subcategory.subcategoryId}>
+                    <Card
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedSubcategory === (subcategory.subcategoryId || (subcategory as any).subCategoryId)
+                          ? 'ring-2 ring-primary bg-primary/5'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        console.log('Clicked subcategory object:', subcategory);
+                        // Handle both possible property names
+                        const id = subcategory.subcategoryId || (subcategory as any).subCategoryId;
+                        console.log('Extracted ID:', id);
+                        if (id) {
+                          handleSubcategorySelect(id);
+                        } else {
+                          console.error('No subcategoryId found in object:', subcategory);
+                        }
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">{subcategory.name}</h4>
+                          </div>
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            selectedSubcategory === subcategory.subcategoryId
+                              ? 'bg-primary border-primary'
+                              : 'border-muted-foreground'
+                          }`} />
                         </div>
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          selectedSubcategory === subcategory.subcategoryId
-                            ? 'bg-primary border-primary'
-                            : 'border-muted-foreground'
-                        }`} />
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </div>
                 ))
               )}
             </div>
@@ -309,7 +381,7 @@ export function SubcategorySelectionDialog({
             <Button
               type="submit"
               className="bg-primary hover:bg-primary-hover"
-              disabled={!selectedSubcategory}
+              disabled={!selectedSubcategory || !quantity || !price || !expiryDate}
             >
               Add to Product
             </Button>

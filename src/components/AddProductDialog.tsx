@@ -48,6 +48,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -118,6 +119,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       setOpen(false);
     } catch (error) {
       console.error("Failed to create product:", error);
+      setError(error instanceof Error ? error.message : 'Failed to create product');
     } finally {
       setIsLoading(false);
     }
@@ -142,14 +144,23 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
   const handleBrandChange = (brandId: string) => {
     // Clear existing subcategories when brand changes
-    setSelectedSubcategories([]);
+    setSelectedSubcategories([]); // Clear selected subcategories
     setFormData(prev => ({
       ...prev,
       brand: brandId
     }));
+    // Reset the subcategory dialog state
+    setSubcategoryDialogOpen(false); // Close the dialog first
+    // The useEffect will trigger it to open again with the new brand
   };
 
   const handleSubcategorySelect = (subcategoryData: SubcategoryData) => {
+    // First validate that we have a selected brand
+    if (!formData.brand) {
+      console.error("No brand selected");
+      return;
+    }
+
     // Check if subcategory already exists
     const existingIndex = selectedSubcategories.findIndex(
       sub => sub.subcategoryId === subcategoryData.subcategoryId
@@ -216,6 +227,11 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
+            {error && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mt-2">
+                {error}
+              </div>
+            )}
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">

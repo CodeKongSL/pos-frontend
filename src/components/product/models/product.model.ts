@@ -12,6 +12,7 @@ export interface ProductSubcategory {
   subcategoryId: string;
   quantity: number;
   expiryDate: string;
+  price: number;
 }
 
 export interface ProductCreate {
@@ -22,6 +23,7 @@ export interface ProductCreate {
 }
 
 export interface ProductCreateRequest {
+  productId?: string;
   categoryId: string;
   brandId: string;
   description: string;

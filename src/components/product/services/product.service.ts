@@ -25,14 +25,30 @@ export const ProductService = {
 
   async createProduct(productData: ProductCreateRequest): Promise<Product> {
     try {
-      console.log('Creating product with data:', productData);
+      console.log('Creating product with data:', JSON.stringify(productData, null, 2));
+      
+      // Generate a unique product ID
+      const timestamp = Date.now();
+      const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      productData.productId = `PRD-${timestamp}-${randomPart}`;
+
+      console.log('Using product ID:', productData.productId);
       
       // Validate required fields
       if (!productData.categoryId) throw new Error('Category ID is required');
       if (!productData.brandId) throw new Error('Brand ID is required');
       if (!productData.productSubcategories?.length) throw new Error('At least one subcategory is required');
       
+      // Validate subcategories data
+      productData.productSubcategories.forEach((sub, index) => {
+        if (!sub.subcategoryId) throw new Error(`Subcategory ${index + 1}: ID is required`);
+        if (sub.quantity <= 0) throw new Error(`Subcategory ${index + 1}: Quantity must be greater than 0`);
+        if (!sub.expiryDate) throw new Error(`Subcategory ${index + 1}: Expiry date is required`);
+        if (sub.price <= 0) throw new Error(`Subcategory ${index + 1}: Price must be greater than 0`);
+      });
+      
       console.log('Request URL:', CREATE_PRODUCT_URL);
+      console.log('Request payload:', JSON.stringify(productData, null, 2));
       
       const response = await fetch(CREATE_PRODUCT_URL, {
         method: 'POST',
@@ -50,7 +66,26 @@ export const ProductService = {
 
       if (!response.ok) {
         console.error('Server error response:', responseText);
-        throw new Error(responseText || 'Failed to create product');
+        console.error('Response status:', response.status);
+        console.error('Response headers:', [...response.headers.entries()]);
+        
+        let errorMessage = 'Failed to create product';
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          
+          // Handle specific error cases
+          if (errorData.error?.includes('[ProductId] unique')) {
+            errorMessage = 'A product with this combination already exists. Please modify the details and try again.';
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorMessage = responseText || 'Invalid server response';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // Try to parse the response as JSON if it's not empty
