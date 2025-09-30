@@ -71,9 +71,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     fetchData();
   }, []);
   const [formData, setFormData] = useState({
+    name: "",
+    barcode: "",
     category: "",
     brand: "",
     description: "",
+    costPrice: "",
+    sellingPrice: "",
   });
   const [selectedSubcategories, setSelectedSubcategories] = useState<SubcategoryData[]>([]);
 
@@ -89,11 +93,20 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     setIsLoading(true);
     
     try {
+      // Calculate total stock quantity from all subcategories
+      const stockQty = selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
+
       // Prepare product data
       const productData = {
+        name: formData.name,
         categoryId: formData.category,
         brandId: formData.brand,
         description: formData.description,
+        costPrice: Number(formData.costPrice),
+        sellingPrice: Number(formData.sellingPrice),
+        stockQty: stockQty,
+        subcategoryId: selectedSubcategories[0]?.subcategoryId || "", // Use first subcategory's ID
+        barcode: formData.barcode || undefined,
         productSubcategories: selectedSubcategories.map(sub => ({
           subcategoryId: sub.subcategoryId,
           quantity: sub.quantity,
@@ -111,9 +124,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       
       // Reset form and close dialog
       setFormData({
+        name: "",
+        barcode: "",
         category: "",
         brand: "",
         description: "",
+        costPrice: "",
+        sellingPrice: "",
       });
       setSelectedSubcategories([]);
       setOpen(false);
@@ -161,6 +178,8 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       return;
     }
 
+    const brandName = getSelectedBrandName();
+
     // Check if subcategory already exists
     const existingIndex = selectedSubcategories.findIndex(
       sub => sub.subcategoryId === subcategoryData.subcategoryId
@@ -178,6 +197,19 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       setSelectedSubcategories(prev => [...prev, subcategoryData]);
     }
 
+    // Auto-generate product name from brand and subcategory
+    const generatedName = `${brandName} ${subcategoryData.subcategoryName}`.trim();
+    
+    // Calculate total cost (quantity × unit price)
+    const totalCost = (subcategoryData.quantity * subcategoryData.price).toFixed(2);
+    
+    // Update form with generated name and calculated cost
+    setFormData(prev => ({
+      ...prev,
+      name: generatedName,
+      costPrice: totalCost
+    }));
+
     setSubcategoryDialogOpen(false);
   };
 
@@ -191,9 +223,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     if (!newOpen) {
       // Reset everything when closing main dialog
       setFormData({
+        name: "",
+        barcode: "",
         category: "",
         brand: "",
         description: "",
+        costPrice: "",
+        sellingPrice: "",
       });
       setSelectedSubcategories([]);
       setSubcategoryDialogOpen(false);
@@ -210,8 +246,11 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   };
 
   const isFormValid = () => {
-    return formData.category && 
+    return formData.name &&
+           formData.category && 
            formData.brand && 
+           formData.costPrice &&
+           formData.sellingPrice &&
            selectedSubcategories.length > 0;
   };
 
@@ -328,6 +367,66 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="name">Product Name *</Label>
+              <input
+                type="text"
+                id="name"
+                className="w-full px-3 py-2 border rounded-md"
+                placeholder="Auto-generated from brand and subcategory"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                disabled={true}
+                title="Name is automatically generated from brand and subcategory"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="barcode">Barcode (Optional)</Label>
+              <input
+                type="text"
+                id="barcode"
+                className="w-full px-3 py-2 border rounded-md"
+                placeholder="Enter barcode"
+                value={formData.barcode}
+                onChange={(e) => handleInputChange("barcode", e.target.value)}
+                disabled={!isCategorySelected}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="costPrice">Cost Price *</Label>
+                <input
+                  type="number"
+                  id="costPrice"
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Auto-calculated from quantity and unit price"
+                  value={formData.costPrice}
+                  onChange={(e) => handleInputChange("costPrice", e.target.value)}
+                  disabled={true}
+                  min="0"
+                  step="0.01"
+                  title="Cost is automatically calculated as quantity × unit price"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sellingPrice">Selling Price *</Label>
+                <input
+                  type="number"
+                  id="sellingPrice"
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Enter selling price"
+                  value={formData.sellingPrice}
+                  onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
+                  disabled={!isCategorySelected}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

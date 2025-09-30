@@ -1,8 +1,15 @@
 export interface Product {
   productId: string;
+  name: string;
+  barcode?: string;
   categoryId: string;
   brandId: string;
+  subcategoryId?: string;
   description: string;
+  costPrice: number;
+  sellingPrice: number;
+  stockQty: number;
+  expiry_date?: string;
   created_at: string;
   updated_at: string;
   productSubcategories: ProductSubcategory[];
@@ -16,16 +23,28 @@ export interface ProductSubcategory {
 }
 
 export interface ProductCreate {
+  name: string;
+  barcode?: string;
   categoryId: string;
   brandId: string;
+  subcategoryId: string;
   description: string;
+  costPrice: number;
+  sellingPrice: number;
+  stockQty: number;
   productSubcategories: ProductSubcategory[];
 }
 
 export interface ProductCreateRequest {
   productId?: string;
+  name: string;
   categoryId: string;
   brandId: string;
+  subcategoryId: string;
   description: string;
+  costPrice: number;
+  sellingPrice: number;
+  stockQty: number;
+  barcode?: string;
   productSubcategories: ProductSubcategory[];
 }
