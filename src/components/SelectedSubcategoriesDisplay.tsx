@@ -8,6 +8,7 @@ interface SubcategoryData {
   subcategoryName: string;
   quantity: number;
   expiryDate: string;
+  price: number;
 }
 
 interface SelectedSubcategoriesDisplayProps {

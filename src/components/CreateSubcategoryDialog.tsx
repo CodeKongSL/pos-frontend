@@ -44,7 +44,7 @@ export function CreateSubcategoryDialog({ children, brandId, brandName, onSubcat
         throw new Error('Subcategory name is required');
       }
       const newSubcategory = await SubcategoryService.createSubcategory({
-        subcategoryName: trimmedName,
+        name: trimmedName,
         brandId: brandId
       });
       console.log('Subcategory created successfully:', newSubcategory);

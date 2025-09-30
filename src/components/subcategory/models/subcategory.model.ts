@@ -12,6 +12,6 @@ export interface SubcategoryCreate {
 }
 
 export interface SubcategoryCreateRequest {
-  subcategoryName: string;
+  name: string;
   brandId: string;
 }

@@ -28,22 +28,24 @@ export const SubcategoryService = {
       console.log('Creating subcategory with data:', subcategoryData);
       
       // Validate that required fields are present
-      if (!subcategoryData.subcategoryName) {
+      if (!subcategoryData.name) {
         throw new Error('Subcategory name is required');
       }
       if (!subcategoryData.brandId) {
         throw new Error('Brand ID is required');
       }
       
-      // Construct URL with query parameters
-      const url = `${CREATE_SUBCATEGORY_URL}?subcategoryName=${encodeURIComponent(subcategoryData.subcategoryName)}&brandId=${encodeURIComponent(subcategoryData.brandId)}`;
+      // Send data in request body as JSON
+      const url = CREATE_SUBCATEGORY_URL;
       console.log('Request URL:', url);
       
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(subcategoryData)
       });
 
       console.log('Response status:', response.status);

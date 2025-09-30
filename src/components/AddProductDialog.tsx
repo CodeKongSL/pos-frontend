@@ -35,6 +35,7 @@ interface SubcategoryData {
   subcategoryName: string;
   quantity: number;
   expiryDate: string;
+  price: number;
 }
 
 interface AddProductDialogProps {
@@ -95,7 +96,8 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
         productSubcategories: selectedSubcategories.map(sub => ({
           subcategoryId: sub.subcategoryId,
           quantity: sub.quantity,
-          expiryDate: sub.expiryDate
+          expiryDate: sub.expiryDate,
+          price: sub.price
         }))
       };
       
