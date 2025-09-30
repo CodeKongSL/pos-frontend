@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AddSupplierDialog from "../components/AddSupplierDialog";
 import { Search, Plus, Edit, Trash2, MapPin, Phone, Mail, Package, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ const suppliers = [
 
 export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,13 +92,15 @@ export default function Suppliers() {
 
   return (
     <div className="space-y-6">
+      {/* Add Supplier Dialog */}
+      <AddSupplierDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Manage Suppliers</h1>
           <p className="text-muted-foreground mt-1">Manage supplier relationships and contacts</p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
+        <Button className="bg-primary hover:bg-primary-hover" onClick={() => setAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Supplier
         </Button>
