@@ -28,10 +28,6 @@ export default function Brands() {
           <h1 className="text-3xl font-bold text-foreground">Manage Brands</h1>
           <p className="text-muted-foreground mt-1">Manage product brands and manufacturers</p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Brand
-        </Button>
       </div>
 
       {/* Stats */}

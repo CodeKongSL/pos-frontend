@@ -49,9 +49,17 @@ export const AddSupplierDialog: React.FC<AddSupplierDialogProps> = ({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || 'Failed to create supplier');
       }
+      
+      // Reset form
       setForm({ name: '', contact: '', email: '', address: '' });
-      if (onSuccess) onSuccess();
+      
+      // Close dialog
       onClose();
+      
+      // Refresh the supplier list - this will trigger fetchSuppliers in parent
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       setError(err.message || 'Error occurred');
     } finally {
