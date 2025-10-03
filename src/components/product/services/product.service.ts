@@ -5,6 +5,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_PRODUCTS_URL = `${API_BASE_URL}/FindAllProducts`;
 const CREATE_PRODUCT_URL = `${API_BASE_URL}/CreateProduct`;
+const DELETE_PRODUCT_URL = `${API_BASE_URL}/DeleteProducts`;
 
 export const ProductService = {
   async getAllProducts(): Promise<Product[]> {
@@ -119,6 +120,47 @@ export const ProductService = {
     } catch (error) {
       console.error('Error creating product:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to create product');
+    }
+  },
+
+  async deleteProduct(productId: string): Promise<void> {
+    try {
+      console.log('Deleting product with ID:', productId);
+      
+      const url = `${DELETE_PRODUCT_URL}?productId=${encodeURIComponent(productId)}`;
+      console.log('Delete request URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Delete response status:', response.status);
+      
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('Delete error response:', responseText);
+        
+        let errorMessage = 'Failed to delete product';
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (parseError) {
+          errorMessage = responseText || 'Invalid server response';
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      console.log('Product deleted successfully');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete product');
     }
   }
 };

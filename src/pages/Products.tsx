@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Edit, Trash2, Eye, RefreshCcw } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, RefreshCcw, AlertCircle } from "lucide-react";
 import { Product } from "@/components/product/models/product.model";
 import { ProductService } from "@/components/product/services/product.service";
 import { Category } from "@/components/category/models/category.model";
@@ -11,6 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AddProductDialog } from "@/components/AddProductDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import {
   Table,
@@ -37,6 +47,9 @@ export default function Products() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<DisplayProduct | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -95,6 +108,32 @@ export default function Products() {
     return <Badge className="bg-success text-success-foreground">Active</Badge>;
   };
 
+  const handleDeleteClick = (product: DisplayProduct) => {
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await ProductService.deleteProduct(productToDelete.productId);
+      
+      // Refresh the product list
+      await fetchData();
+      
+      // Close dialog and reset state
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete product');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -149,7 +188,7 @@ export default function Products() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
                       <p className="text-sm text-muted-foreground">Loading products...</p>
@@ -158,8 +197,16 @@ export default function Products() {
                 </TableRow>
               ) : filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">No products found</p>
+                  <TableCell colSpan={7} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
+                      <p className="text-lg font-medium text-foreground mb-1">No Products Found</p>
+                      <p className="text-sm text-muted-foreground">
+                        {searchTerm 
+                          ? "Try adjusting your search criteria"
+                          : "Get started by adding your first product"}
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -183,7 +230,12 @@ export default function Products() {
                         <Button variant="outline" size="sm">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                          onClick={() => handleDeleteClick(product)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -240,6 +292,35 @@ export default function Products() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{productToDelete?.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
