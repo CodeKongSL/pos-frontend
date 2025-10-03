@@ -16,16 +16,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Package, Loader2 } from "lucide-react";
+import { Plus, Package, Loader2, Trash2 } from "lucide-react";
 import { ProductService } from "./product/services/product.service";
 import { Product } from "./product/models/product.model";
-import { assignProductToSupplier } from "./supplier/services/supplier.service";
+import { assignProductToSupplier, findProductsBySupplierID } from "./supplier/services/supplier.service";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductSelectionDialogProps {
   open: boolean;
   onClose: () => void;
   supplierId: string;
   supplierName: string;
+}
+
+interface AssignedProduct {
+  _id: string;
+  supplierId: string;
+  supplierName: string;
+  productId: string;
+  productName: string;
+  assignedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ProductSelectionDialog({
@@ -35,20 +47,35 @@ export default function ProductSelectionDialog({
   supplierName,
 }: ProductSelectionDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [assignedProducts, setAssignedProducts] = useState<AssignedProduct[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
 
   useEffect(() => {
     if (open) {
-      fetchProducts();
+      fetchAssignedProducts();
       setShowAddProduct(false);
       setSelectedProductId("");
     }
   }, [open]);
 
-  const fetchProducts = async () => {
+  const fetchAssignedProducts = async () => {
+    setLoadingAssigned(true);
+    try {
+      const data = await findProductsBySupplierID(supplierId);
+      setAssignedProducts(data);
+    } catch (error) {
+      console.error('Error fetching assigned products:', error);
+      setAssignedProducts([]);
+    } finally {
+      setLoadingAssigned(false);
+    }
+  };
+
+  const fetchAllProducts = async () => {
     setLoading(true);
     try {
       const data = await ProductService.getAllProducts();
@@ -59,6 +86,11 @@ export default function ProductSelectionDialog({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShowAddProduct = () => {
+    setShowAddProduct(true);
+    fetchAllProducts();
   };
 
   const handleAddProduct = async () => {
@@ -85,12 +117,10 @@ export default function ProductSelectionDialog({
       // Success - show notification
       alert(`Product "${selectedProduct.name}" successfully assigned to ${supplierName}!`);
       
-      // Reset state
+      // Reset state and refresh assigned products
       setSelectedProductId("");
       setShowAddProduct(false);
-      
-      // Optionally close the dialog
-      // onClose();
+      await fetchAssignedProducts();
       
     } catch (error) {
       console.error('Error assigning product:', error);
@@ -100,40 +130,117 @@ export default function ProductSelectionDialog({
     }
   };
 
-  // Filter products with stock
-  const availableProducts = products.filter(p => p.stockQty > 0);
+  // Filter out already assigned products
+  const assignedProductIds = assignedProducts.map(ap => ap.productId);
+  const availableProducts = products.filter(
+    p => p.stockQty > 0 && !assignedProductIds.includes(p.productId)
+  );
+
+  const hasAssignedProducts = assignedProducts.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
             Products for {supplierName}
           </DialogTitle>
           <DialogDescription>
-            Assign products to this supplier
+            {hasAssignedProducts 
+              ? "Manage products assigned to this supplier" 
+              : "Assign products to this supplier"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {!showAddProduct ? (
+          {loadingAssigned ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : !hasAssignedProducts && !showAddProduct ? (
+            // Empty state - no products assigned
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <Package className="h-12 w-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground text-center">
                 Assign products to this supplier
               </p>
               <Button
-                onClick={() => setShowAddProduct(true)}
+                onClick={handleShowAddProduct}
                 className="bg-primary hover:bg-primary-hover"
-                disabled={loading}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Products
               </Button>
             </div>
-          ) : (
+          ) : hasAssignedProducts && !showAddProduct ? (
+            // Show assigned products list
             <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">
+                  Assigned Products ({assignedProducts.length})
+                </h3>
+                <Button
+                  onClick={handleShowAddProduct}
+                  size="sm"
+                  className="bg-primary hover:bg-primary-hover"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add More
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {assignedProducts.map((assignedProduct) => (
+                  <div
+                    key={assignedProduct._id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">
+                          {assignedProduct.productName}
+                        </p>
+                        <Badge variant="outline" className="text-xs">
+                          {assignedProduct.productId}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Assigned: {new Date(assignedProduct.assignedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {/* Optional: Add remove button
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    */}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            // Add product form
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">Add New Product</h3>
+                {hasAssignedProducts && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowAddProduct(false);
+                      setSelectedProductId("");
+                    }}
+                  >
+                    Back to List
+                  </Button>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Product</label>
                 <Select

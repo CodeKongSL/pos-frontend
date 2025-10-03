@@ -12,7 +12,7 @@ export async function createSupplier(supplier: Supplier): Promise<Response> {
   });
 }
 
-// NEW: Assign product to supplier
+// Assign product to supplier
 export async function assignProductToSupplier(
   supplierId: string,
   productId: string
@@ -25,4 +25,22 @@ export async function assignProductToSupplier(
       'Content-Type': 'application/json',
     },
   });
+}
+
+// NEW: Find products by supplier ID
+export async function findProductsBySupplierID(supplierId: string): Promise<any[]> {
+  try {
+    const url = `${BASE_URL}/FindProductsBySupplierID?supplierId=${supplierId}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch supplier products');
+    }
+    
+    const data = await response.json();
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching supplier products:', error);
+    return [];
+  }
 }
