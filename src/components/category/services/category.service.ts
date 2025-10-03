@@ -5,6 +5,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_CATEGORY_URL = `${API_BASE_URL}/FindAllCategory`;
 const CREATE_CATEGORY_URL = `${API_BASE_URL}/CreateCategory`;
+const DELETE_CATEGORY_URL = `${API_BASE_URL}/DeleteCategory`;
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
@@ -61,6 +62,28 @@ export const CategoryService = {
     } catch (error) {
       console.error('Error creating category:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to create category');
+    }
+  },
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    try {
+      const url = `${DELETE_CATEGORY_URL}?categoryId=${encodeURIComponent(categoryId)}`;
+      console.log('Deleting category:', url);
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to delete category');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete category');
     }
   }
 };

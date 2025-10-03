@@ -65,9 +65,9 @@ export default function Products() {
       console.log('Categories response:', categoriesRes);
       console.log('Brands response:', brandsRes);
       
-      setProducts(productsRes);
-      setCategories(categoriesRes);
-      setBrands(brandsRes);
+      setProducts(Array.isArray(productsRes) ? productsRes : []);
+      setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
+      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       setError(error instanceof Error ? error.message : 'Failed to fetch data');
@@ -81,8 +81,12 @@ export default function Products() {
   }, []);
 
   const getProductDisplayData = (product: Product): DisplayProduct => {
-    const category = categories.find(c => c.categoryId === product.categoryId);
-    const brand = brands.find(b => b.brandId === product.brandId);
+    // Ensure we have arrays to work with
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const safeBrands = Array.isArray(brands) ? brands : [];
+    
+    const category = safeCategories.find(c => c.categoryId === product.categoryId);
+    const brand = safeBrands.find(b => b.brandId === product.brandId);
 
     return {
       productId: product.productId,
@@ -171,6 +175,21 @@ export default function Products() {
       <Card>
         <CardHeader>
           <CardTitle>Products ({filteredProducts.length})</CardTitle>
+          {error && (
+            <div className="mt-2 p-3 text-sm rounded-md bg-destructive/10 text-destructive flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={fetchData}
+              >
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Table>

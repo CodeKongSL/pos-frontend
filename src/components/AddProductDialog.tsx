@@ -52,6 +52,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
   const fetchData = async () => {
     try {
+      setIsLoading(true);
       console.log('Fetching categories and brands...');
       const [categoriesRes, brandsRes] = await Promise.all([
         CategoryService.getAllCategories(),
@@ -59,10 +60,14 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       ]);
       console.log('Categories received:', categoriesRes);
       console.log('Brands received:', brandsRes);
-      setCategories(categoriesRes);
-      setBrands(brandsRes);
+      setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
+      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
+      setError(null);
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -271,6 +276,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 {error}
               </div>
             )}
+            {isLoading && (
+              <div className="bg-muted/50 text-muted-foreground text-sm p-3 rounded-md mt-2 flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                Loading...
+              </div>
+            )}
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -284,11 +295,17 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.categoryId} value={category.categoryId}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {categories.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No categories available
+                      </div>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.categoryId} value={category.categoryId}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <CreateCategoryDialog onCategoryCreated={() => {
@@ -314,11 +331,17 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                     <SelectValue placeholder={isCategorySelected ? "Select a brand" : "Select category first"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.map((brand) => (
-                      <SelectItem key={brand.brandId} value={brand.brandId}>
-                        {brand.name}
-                      </SelectItem>
-                    ))}
+                    {brands.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No brands available
+                      </div>
+                    ) : (
+                      brands.map((brand) => (
+                        <SelectItem key={brand.brandId} value={brand.brandId}>
+                          {brand.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <CreateBrandDialog 

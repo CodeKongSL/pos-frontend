@@ -27,9 +27,12 @@ interface Product {
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
+import { CategoryService } from '../components/category/services/category.service';
+
 const CategoriesPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -47,8 +50,10 @@ const CategoriesPage = () => {
       ]);
       setCategories(categoriesData);
       setProducts(productsData);
+      setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
+      setError('Failed to load data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -57,13 +62,15 @@ const CategoriesPage = () => {
   const fetchCategories = async (): Promise<Category[]> => {
     const response = await fetch(`${API_BASE_URL}/FindAllCategory`);
     if (!response.ok) throw new Error('Failed to fetch categories');
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   };
 
   const fetchProducts = async (): Promise<Product[]> => {
     const response = await fetch(`${API_BASE_URL}/FindAllProducts`);
     if (!response.ok) throw new Error('Failed to fetch products');
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   };
 
   const getProductCountByCategory = (categoryId: string) => {
@@ -88,12 +95,42 @@ const CategoriesPage = () => {
     alert(`Viewing products for category: ${categoryName}`);
   };
 
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (window.confirm('Are you sure you want to delete this category?')) {
+      try {
+        await CategoryService.deleteCategory(categoryId);
+        // Refresh data after deletion
+        await fetchData();
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        alert('Failed to delete category. Please try again.');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading categories...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">⚠️</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{error}</h3>
+          <button
+            onClick={fetchData}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -182,6 +219,7 @@ const CategoriesPage = () => {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => handleDeleteCategory(category.categoryId)}
                         className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete category"
                       >
