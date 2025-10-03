@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AddSupplierDialog from "../components/AddSupplierDialog";
 import ProductSelectionDialog from "../components/ProductSelectionDialog";
+import { deleteSupplierById } from "../components/supplier/services/supplier.service";
 import { Search, Plus, Edit, Trash2, MapPin, Phone, Mail, Package, Users, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export default function Suppliers() {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSuppliers();
@@ -49,6 +51,30 @@ export default function Suppliers() {
       setSuppliers([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteSupplier = async (supplierId: string) => {
+    if (!confirm('Are you sure you want to delete this supplier?')) {
+      return;
+    }
+
+    try {
+      setDeleting(supplierId);
+      const response = await deleteSupplierById(supplierId);
+      
+      if (response.ok) {
+        // Refresh the suppliers list after successful deletion
+        await fetchSuppliers();
+      } else {
+        console.error('Failed to delete supplier');
+        alert('Failed to delete supplier. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      alert('An error occurred while deleting the supplier.');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -226,7 +252,13 @@ export default function Suppliers() {
                           <ShoppingCart className="h-4 w-4 mr-1" />
                           Products
                         </Button>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                          onClick={() => handleDeleteSupplier(supplier.supplierId)}
+                          disabled={deleting === supplier.supplierId}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
