@@ -78,11 +78,23 @@ const CategoriesPage = () => {
   };
 
   const getCategorizedProductsCount = () => {
-    return products.filter(p => p.categoryId && p.categoryId.trim() !== '').length;
+    return products.filter(p => 
+      // Product must have a categoryId
+      p.categoryId && 
+      p.categoryId.trim() !== '' && 
+      // And that category must still exist
+      categories.some(c => c.categoryId === p.categoryId)
+    ).length;
   };
 
   const getUncategorizedProductsCount = () => {
-    return products.filter(p => !p.categoryId || p.categoryId.trim() === '').length;
+    return products.filter(p => 
+      // Include products with no categoryId
+      !p.categoryId || 
+      p.categoryId.trim() === '' ||
+      // Or products whose category no longer exists
+      !categories.some(c => c.categoryId === p.categoryId)
+    ).length;
   };
 
   const filteredCategories = categories.filter(cat =>

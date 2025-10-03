@@ -92,7 +92,7 @@ export default function Products() {
       productId: product.productId,
       name: product.name,
       totalStock: product.stockQty,
-      categoryName: category?.name || 'Unknown Category',
+      categoryName: category ? category.name : 'Uncategorized',
       brandName: brand?.name || 'Unknown Brand',
       sellingPrice: product.sellingPrice
     };
