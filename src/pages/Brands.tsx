@@ -1,24 +1,93 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, Award, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-const brands = [
-  { id: "1", name: "Coca-Cola", productCount: 15, revenue: "Rs. 45,500.00", status: "Active" },
-  { id: "2", name: "Anchor", productCount: 8, revenue: "Rs. 28,200.00", status: "Active" },
-  { id: "3", name: "Sunlight", productCount: 12, revenue: "Rs. 18,750.00", status: "Active" },
-  { id: "4", name: "Lifebuoy", productCount: 6, revenue: "Rs. 12,400.00", status: "Active" },
-  { id: "5", name: "Milo", productCount: 4, revenue: "Rs. 8,900.00", status: "Active" },
-];
+// Brand interface matching your backend
+interface Brand {
+  brandId: string;
+  name: string;
+  categoryId: string;
+  deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Display brand interface for the UI
+interface DisplayBrand {
+  id: string;
+  name: string;
+  productCount: number;
+  revenue: string;
+  status: string;
+}
 
 export default function Brands() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [brands, setBrands] = useState<DisplayBrand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBrands();
+  }, []);
+
+  const fetchBrands = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('https://my-go-backend.onrender.com/FindAllBrands');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch brands');
+      }
+      
+      const data: Brand[] = await response.json();
+      
+      // Transform API data to display format
+      const displayBrands: DisplayBrand[] = data
+        .filter(brand => !brand.deleted)
+        .map(brand => ({
+          id: brand.brandId,
+          name: brand.name,
+          productCount: 0, // Keep as 0 for now
+          revenue: "Rs. 0.00", // Keep as placeholder
+          status: "Active"
+        }));
+      
+      setBrands(displayBrands);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching brands:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredBrands = brands.filter(brand =>
     brand.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading brands...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-destructive mb-2">Error: {error}</p>
+          <Button onClick={fetchBrands}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -83,45 +152,55 @@ export default function Brands() {
       </Card>
 
       {/* Brands Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredBrands.map((brand) => (
-          <Card key={brand.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">{brand.name}</CardTitle>
-                <div className="flex gap-1">
+      {filteredBrands.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              {searchTerm ? 'No brands found matching your search.' : 'No brands available.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredBrands.map((brand) => (
+            <Card key={brand.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold">{brand.name}</CardTitle>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Products</p>
+                    <p className="font-semibold">{brand.productCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Revenue</p>
+                    <p className="font-semibold text-accent">{brand.revenue}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-success text-success-foreground">
+                    {brand.status}
+                  </Badge>
                   <Button variant="outline" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
-                    <Trash2 className="h-4 w-4" />
+                    View Products
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Products</p>
-                  <p className="font-semibold">{brand.productCount}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Revenue</p>
-                  <p className="font-semibold text-accent">{brand.revenue}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <Badge className="bg-success text-success-foreground">
-                  {brand.status}
-                </Badge>
-                <Button variant="outline" size="sm">
-                  View Products
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Quick Actions */}
       <Card>
