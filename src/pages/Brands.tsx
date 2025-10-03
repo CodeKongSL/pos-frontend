@@ -4,16 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-
-// Brand interface matching your backend
-interface Brand {
-  brandId: string;
-  name: string;
-  categoryId: string;
-  deleted: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { BrandService } from "../components/brand/services/brand.service";
+import { Brand } from "../components/brand/models/brand.model";
 
 // Display brand interface for the UI
 interface DisplayBrand {
@@ -38,13 +30,7 @@ export default function Brands() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('https://my-go-backend.onrender.com/FindAllBrands');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch brands');
-      }
-      
-      const data: Brand[] = await response.json();
+      const data = await BrandService.getAllBrands();
       
       // Transform API data to display format
       const displayBrands: DisplayBrand[] = data
@@ -63,6 +49,21 @@ export default function Brands() {
       console.error('Error fetching brands:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteBrand = async (brandId: string, brandName: string) => {
+    if (!confirm(`Are you sure you want to delete "${brandName}"?`)) {
+      return;
+    }
+
+    try {
+      await BrandService.deleteBrand(brandId);
+      // Refresh the brands list after successful deletion
+      await fetchBrands();
+    } catch (err) {
+      alert('Error deleting brand: ' + (err instanceof Error ? err.message : 'An error occurred'));
+      console.error('Error deleting brand:', err);
     }
   };
 
@@ -171,7 +172,15 @@ export default function Brands() {
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteBrand(brand.id, brand.name);
+                      }}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

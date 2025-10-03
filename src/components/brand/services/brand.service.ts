@@ -4,6 +4,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_BRANDS_URL = `${API_BASE_URL}/FindAllBrands`;
 const CREATE_BRAND_URL = `${API_BASE_URL}/CreateBrands`;
+const DELETE_BRAND_URL = `${API_BASE_URL}/DeleteBrand`;
 
 export const BrandService = {
   async getAllBrands(): Promise<Brand[]> {
@@ -65,6 +66,39 @@ export const BrandService = {
     } catch (error) {
       console.error('Error creating brand:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to create brand');
+    }
+  },
+
+  async deleteBrand(brandId: string): Promise<void> {
+    try {
+      console.log('Deleting brand with ID:', brandId);
+      
+      if (!brandId) {
+        throw new Error('Brand ID is required');
+      }
+      
+      const url = `${DELETE_BRAND_URL}?brandId=${brandId}`;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('Server error response:', responseText);
+        throw new Error(responseText || 'Failed to delete brand');
+      }
+
+      console.log('Brand deleted successfully');
+    } catch (error) {
+      console.error('Error deleting brand:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete brand');
     }
   }
 };

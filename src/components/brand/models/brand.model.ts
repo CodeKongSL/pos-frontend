@@ -2,6 +2,7 @@ export interface Brand {
   brandId: string;
   name: string;
   categoryId: string;
+  deleted: boolean;
   created_at: string;
   updated_at: string;
 }
