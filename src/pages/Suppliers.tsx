@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AddSupplierDialog from "../components/AddSupplierDialog";
+import ProductSelectionDialog from "../components/ProductSelectionDialog";
 import { Search, Plus, Edit, Trash2, MapPin, Phone, Mail, Package, Users, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ interface Supplier {
 export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +52,16 @@ export default function Suppliers() {
     }
   };
 
+  const handleOpenProductDialog = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setProductDialogOpen(true);
+  };
+
+  const handleCloseProductDialog = () => {
+    setProductDialogOpen(false);
+    setSelectedSupplier(null);
+  };
+
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.address.toLowerCase().includes(searchTerm.toLowerCase())
@@ -64,12 +77,22 @@ export default function Suppliers() {
 
   return (
     <div className="space-y-6">
-      {/* Add Supplier Dialog - Pass fetchSuppliers as onSuccess */}
+      {/* Add Supplier Dialog */}
       <AddSupplierDialog 
         open={addDialogOpen} 
         onClose={() => setAddDialogOpen(false)}
         onSuccess={fetchSuppliers}
       />
+
+      {/* Product Selection Dialog */}
+      {selectedSupplier && (
+        <ProductSelectionDialog
+          open={productDialogOpen}
+          onClose={handleCloseProductDialog}
+          supplierId={selectedSupplier.supplierId}
+          supplierName={selectedSupplier.name}
+        />
+      )}
       
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -195,7 +218,11 @@ export default function Suppliers() {
                         <Button variant="outline" size="sm">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleOpenProductDialog(supplier)}
+                        >
                           <ShoppingCart className="h-4 w-4 mr-1" />
                           Products
                         </Button>

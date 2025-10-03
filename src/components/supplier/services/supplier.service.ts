@@ -11,3 +11,18 @@ export async function createSupplier(supplier: Supplier): Promise<Response> {
     body: JSON.stringify(supplier),
   });
 }
+
+// NEW: Assign product to supplier
+export async function assignProductToSupplier(
+  supplierId: string,
+  productId: string
+): Promise<Response> {
+  const url = `${BASE_URL}/AssignProductToSupplier?supplierId=${supplierId}&productId=${productId}`;
+  
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
