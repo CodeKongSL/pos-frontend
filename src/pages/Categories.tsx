@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Tag, FolderOpen, Edit2, Trash2, Search } from 'lucide-react';
 import CategoryProductsModal from '../components/CategoryProductsModal';
-import UncategorizedProductsModal from '../components/UncategorizedProductsModal';
 
 // Types
 interface Category {
@@ -42,7 +41,6 @@ const CategoriesPage = () => {
     name: string;
   } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isUncategorizedModalOpen, setIsUncategorizedModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -80,38 +78,6 @@ const CategoriesPage = () => {
     return Array.isArray(data) ? data : [];
   };
 
-  const uncategorizeProductsByCategory = async (categoryId: string) => {
-    try {
-      // Get all products in this category
-      const categoryProducts = products.filter(p => p.categoryId === categoryId);
-      
-      // Update each product to be uncategorized
-      const updatePromises = categoryProducts.map(async (product) => {
-        const response = await fetch(`${API_BASE_URL}/UpdateProduct`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...product,
-            categoryId: 'UNCATEGORIZED' // or empty string ''
-          })
-        });
-        
-        if (!response.ok) {
-          console.error(`Failed to uncategorize product ${product.productId}`);
-        }
-        return response;
-      });
-
-      await Promise.all(updatePromises);
-      console.log(`Successfully uncategorized ${categoryProducts.length} products`);
-    } catch (error) {
-      console.error('Error uncategorizing products:', error);
-      throw error;
-    }
-  };
-
   const getProductCountByCategory = (categoryId: string) => {
     return products.filter(p => p.categoryId === categoryId).length;
   };
@@ -120,7 +86,6 @@ const CategoriesPage = () => {
     return products.filter(p => 
       p.categoryId && 
       p.categoryId.trim() !== '' && 
-      p.categoryId !== 'UNCATEGORIZED' &&
       categories.some(c => c.categoryId === p.categoryId)
     ).length;
   };
@@ -129,7 +94,6 @@ const CategoriesPage = () => {
     return products.filter(p => 
       !p.categoryId || 
       p.categoryId.trim() === '' ||
-      p.categoryId === 'UNCATEGORIZED' ||
       !categories.some(c => c.categoryId === p.categoryId)
     ).length;
   };
@@ -148,34 +112,11 @@ const CategoriesPage = () => {
     setSelectedCategory(null);
   };
 
-  const handleViewUncategorized = () => {
-    setIsUncategorizedModalOpen(true);
-  };
-
-  const handleCloseUncategorizedModal = () => {
-    setIsUncategorizedModalOpen(false);
-  };
-
   const handleDeleteCategory = async (categoryId: string) => {
-    const productCount = getProductCountByCategory(categoryId);
-    const confirmMessage = productCount > 0
-      ? `This category has ${productCount} product(s). These products will be moved to Uncategorized. Are you sure you want to delete this category?`
-      : 'Are you sure you want to delete this category?';
-
-    if (window.confirm(confirmMessage)) {
+    if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        // First, uncategorize all products in this category
-        if (productCount > 0) {
-          await uncategorizeProductsByCategory(categoryId);
-        }
-        
-        // Then delete the category
         await CategoryService.deleteCategory(categoryId);
-        
-        // Refresh data
         await fetchData();
-        
-        alert(`Category deleted successfully. ${productCount} product(s) moved to Uncategorized.`);
       } catch (error) {
         console.error('Error deleting category:', error);
         alert('Failed to delete category. Please try again.');
@@ -246,10 +187,7 @@ const CategoriesPage = () => {
             </div>
           </div>
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleViewUncategorized}
-          >
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-bold text-gray-900">{getUncategorizedProductsCount()}</p>
@@ -259,11 +197,6 @@ const CategoriesPage = () => {
                 <FolderOpen className="w-6 h-6 text-gray-600" />
               </div>
             </div>
-            {getUncategorizedProductsCount() > 0 && (
-              <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                View Products →
-              </button>
-            )}
           </div>
         </div>
 
@@ -352,12 +285,6 @@ const CategoriesPage = () => {
           categoryName={selectedCategory.name}
         />
       )}
-
-      {/* Uncategorized Products Modal */}
-      <UncategorizedProductsModal
-        isOpen={isUncategorizedModalOpen}
-        onClose={handleCloseUncategorizedModal}
-      />
     </div>
   );
 };
