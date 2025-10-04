@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Tag, FolderOpen, Edit2, Trash2, Search } from 'lucide-react';
+import CategoryProductsModal from '../components/CategoryProductsModal';
 
 // Types
 interface Category {
@@ -35,7 +36,11 @@ const CategoriesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -79,20 +84,16 @@ const CategoriesPage = () => {
 
   const getCategorizedProductsCount = () => {
     return products.filter(p => 
-      // Product must have a categoryId
       p.categoryId && 
       p.categoryId.trim() !== '' && 
-      // And that category must still exist
       categories.some(c => c.categoryId === p.categoryId)
     ).length;
   };
 
   const getUncategorizedProductsCount = () => {
     return products.filter(p => 
-      // Include products with no categoryId
       !p.categoryId || 
       p.categoryId.trim() === '' ||
-      // Or products whose category no longer exists
       !categories.some(c => c.categoryId === p.categoryId)
     ).length;
   };
@@ -102,16 +103,19 @@ const CategoriesPage = () => {
   );
 
   const handleViewProducts = (categoryId: string, categoryName: string) => {
-    setSelectedCategory(categoryId);
-    // In a real app, this would navigate to a products page or open a modal
-    alert(`Viewing products for category: ${categoryName}`);
+    setSelectedCategory({ id: categoryId, name: categoryName });
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCategory(null);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
         await CategoryService.deleteCategory(categoryId);
-        // Refresh data after deletion
         await fetchData();
       } catch (error) {
         console.error('Error deleting category:', error);
@@ -271,6 +275,16 @@ const CategoriesPage = () => {
           </div>
         )}
       </div>
+
+      {/* Category Products Modal */}
+      {selectedCategory && (
+        <CategoryProductsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          categoryId={selectedCategory.id}
+          categoryName={selectedCategory.name}
+        />
+      )}
     </div>
   );
 };
