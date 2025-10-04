@@ -16,3 +16,18 @@ export interface BrandCreateRequest {
   name: string;
   categoryId: string;
 }
+
+export interface Product {
+  productId: string;
+  name: string;
+  barcode: string;
+  categoryId: string;
+  brandId: string;
+  subCategoryId: string;
+  costPrice: number;
+  sellingPrice: number;
+  stockQty: number;
+  deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}

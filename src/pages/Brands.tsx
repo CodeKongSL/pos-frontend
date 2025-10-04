@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BrandService } from "../components/brand/services/brand.service";
 import { Brand } from "../components/brand/models/brand.model";
+import BrandProductsModal from "../components/BrandProductsModal";
 
 // Display brand interface for the UI
 interface DisplayBrand {
@@ -21,6 +22,8 @@ export default function Brands() {
   const [brands, setBrands] = useState<DisplayBrand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<{ id: string; name: string } | null>(null);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     fetchBrands();
@@ -32,16 +35,36 @@ export default function Brands() {
       setError(null);
       const data = await BrandService.getAllBrands();
       
-      // Transform API data to display format
-      const displayBrands: DisplayBrand[] = data
+      // Fetch product counts for each brand
+      const displayBrandsPromises = data
         .filter(brand => !brand.deleted)
-        .map(brand => ({
-          id: brand.brandId,
-          name: brand.name,
-          productCount: 0, // Keep as 0 for now
-          revenue: "Rs. 0.00", // Keep as placeholder
-          status: "Active"
-        }));
+        .map(async (brand) => {
+          try {
+            const products = await BrandService.getProductsByBrandId(brand.brandId);
+            return {
+              id: brand.brandId,
+              name: brand.name,
+              productCount: products.length,
+              revenue: "Rs. 0.00", // Keep as placeholder
+              status: "Active"
+            };
+          } catch (err) {
+            console.error(`Error fetching products for brand ${brand.brandId}:`, err);
+            return {
+              id: brand.brandId,
+              name: brand.name,
+              productCount: 0,
+              revenue: "Rs. 0.00",
+              status: "Active"
+            };
+          }
+        });
+
+      const displayBrands = await Promise.all(displayBrandsPromises);
+      
+      // Calculate total products across all brands
+      const total = displayBrands.reduce((sum, brand) => sum + brand.productCount, 0);
+      setTotalProducts(total);
       
       setBrands(displayBrands);
     } catch (err) {
@@ -65,6 +88,14 @@ export default function Brands() {
       alert('Error deleting brand: ' + (err instanceof Error ? err.message : 'An error occurred'));
       console.error('Error deleting brand:', err);
     }
+  };
+
+  const handleViewProducts = (brandId: string, brandName: string) => {
+    setSelectedBrand({ id: brandId, name: brandName });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedBrand(null);
   };
 
   const filteredBrands = brands.filter(brand =>
@@ -117,7 +148,7 @@ export default function Brands() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-accent">45</p>
+                <p className="text-2xl font-bold text-accent">{totalProducts}</p>
                 <p className="text-sm text-muted-foreground">Branded Products</p>
               </div>
               <Package className="h-8 w-8 text-accent" />
@@ -201,7 +232,14 @@ export default function Brands() {
                   <Badge className="bg-success text-success-foreground">
                     {brand.status}
                   </Badge>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewProducts(brand.id, brand.name);
+                    }}
+                  >
                     View Products
                   </Button>
                 </div>
@@ -243,6 +281,15 @@ export default function Brands() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Products Modal */}
+      {selectedBrand && (
+        <BrandProductsModal
+          brandId={selectedBrand.id}
+          brandName={selectedBrand.name}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }
