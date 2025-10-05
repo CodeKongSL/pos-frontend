@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Search, AlertCircle } from 'lucide-react';
+import { X, Package, Search, AlertCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { Product } from '../types/product';
+import { CategoryService } from './category/services/category.service';
 
 interface UncategorizedOrDeletedProductsModalProps {
   isOpen: boolean;
   onClose: () => void;
   uncategorizedProducts: Product[];
   deletedProducts: Product[];
+  onProductRestored?: () => void;
 }
 
 const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProductsModalProps> = ({
   isOpen,
   onClose,
   uncategorizedProducts,
-  deletedProducts
+  deletedProducts,
+  onProductRestored
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'uncategorized' | 'deleted'>('uncategorized');
+  const [restoringProducts, setRestoringProducts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +51,49 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
       );
       setFilteredProducts(filtered);
     }
+  };
+
+  const handleRestoreProduct = async (product: Product) => {
+    // Validate required fields
+    if (!product.categoryId || !product.brandId) {
+      alert('Cannot restore product: Missing category or brand information. Please ensure the product has valid category and brand IDs.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to restore "${product.name}"?`)) {
+      return;
+    }
+
+    setRestoringProducts(prev => new Set(prev).add(product.productId));
+
+    try {
+      await CategoryService.restoreProduct({
+        productId: product.productId,
+        categoryId: product.categoryId,
+        brandId: product.brandId,
+        subCategoryId: product.subCategoryId || 'NONE'
+      });
+
+      alert('Product restored successfully!');
+      
+      // Notify parent to refresh data
+      if (onProductRestored) {
+        onProductRestored();
+      }
+    } catch (error) {
+      console.error('Error restoring product:', error);
+      alert(error instanceof Error ? error.message : 'Failed to restore product. Please try again.');
+    } finally {
+      setRestoringProducts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.productId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeletePermanently = async (product: Product) => {
+    alert('Delete permanently feature will be implemented soon.');
   };
 
   if (!isOpen) return null;
@@ -156,67 +203,98 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.productId}
-                      className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-base font-semibold text-gray-900 truncate">
-                              {product.name}
-                            </h3>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              activeTab === 'uncategorized'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-red-100 text-red-800'
-                            } flex-shrink-0`}>
-                              {activeTab === 'uncategorized' ? 'Uncategorized' : 'Deleted'}
-                            </span>
+                  {filteredProducts.map((product) => {
+                    const isRestoring = restoringProducts.has(product.productId);
+                    
+                    return (
+                      <div
+                        key={product.productId}
+                        className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
+                      >
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-base font-semibold text-gray-900 truncate">
+                                  {product.name}
+                                </h3>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  activeTab === 'uncategorized'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                } flex-shrink-0`}>
+                                  {activeTab === 'uncategorized' ? 'Uncategorized' : 'Deleted'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                ID: {product.productId}
+                              </p>
+                              {product.barcode && (
+                                <p className="text-sm text-gray-600 mb-1">
+                                  Barcode: {product.barcode}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <span className="text-xs text-gray-500">
+                                  Category: {product.categoryId || 'None'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Brand: {product.brandId || 'None'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Subcategory: {product.subCategoryId || 'None'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-row sm:flex-col gap-3 sm:gap-2 items-start sm:items-end">
+                              <div className="text-left sm:text-right">
+                                <p className="text-xs text-gray-500">Cost Price</p>
+                                <p className="text-sm font-medium text-gray-700">
+                                  Rs. {product.costPrice.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="text-left sm:text-right">
+                                <p className="text-xs text-gray-500">Selling Price</p>
+                                <p className="text-base font-semibold text-gray-900">
+                                  Rs. {product.sellingPrice.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="text-left sm:text-right">
+                                <p className="text-xs text-gray-500">Stock</p>
+                                <p className={`text-sm font-medium ${
+                                  product.stockQty > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {product.stockQty} units
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-600 mb-1">
-                            ID: {product.productId}
-                          </p>
-                          {product.barcode && (
-                            <p className="text-sm text-gray-600 mb-1">
-                              Barcode: {product.barcode}
-                            </p>
+
+                          {/* Action Buttons for Deleted Products */}
+                          {activeTab === 'deleted' && (
+                            <div className="flex gap-2 pt-2 border-t border-gray-200">
+                              <button
+                                onClick={() => handleRestoreProduct(product)}
+                                disabled={isRestoring}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                              >
+                                <RotateCcw className={`w-4 h-4 ${isRestoring ? 'animate-spin' : ''}`} />
+                                {isRestoring ? 'Restoring...' : 'Restore'}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePermanently(product)}
+                                disabled={isRestoring}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Permanently
+                              </button>
+                            </div>
                           )}
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span className="text-xs text-gray-500">
-                              Category: {product.categoryId || 'None'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              Brand: {product.brandId || 'None'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-row sm:flex-col gap-3 sm:gap-2 items-start sm:items-end">
-                          <div className="text-left sm:text-right">
-                            <p className="text-xs text-gray-500">Cost Price</p>
-                            <p className="text-sm font-medium text-gray-700">
-                              Rs. {product.costPrice.toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="text-xs text-gray-500">Selling Price</p>
-                            <p className="text-base font-semibold text-gray-900">
-                              Rs. {product.sellingPrice.toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="text-xs text-gray-500">Stock</p>
-                            <p className={`text-sm font-medium ${
-                              product.stockQty > 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {product.stockQty} units
-                            </p>
-                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -237,7 +315,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                       <strong>Note:</strong> {
                         activeTab === 'uncategorized'
                           ? 'These products have not been assigned to any category. Assign them to categories to better organize your inventory.'
-                          : 'These products have been marked as deleted. They may need to be restored or permanently removed from the system.'
+                          : 'These products have been marked as deleted. You can restore them or permanently remove them from the system.'
                       }
                     </p>
                   </div>

@@ -7,6 +7,14 @@ const FIND_ALL_CATEGORY_URL = `${API_BASE_URL}/FindAllCategory`;
 const CREATE_CATEGORY_URL = `${API_BASE_URL}/CreateCategory`;
 const DELETE_CATEGORY_URL = `${API_BASE_URL}/DeleteCategory`;
 const FIND_ALL_DELETED_PRODUCTS_URL = `${API_BASE_URL}/FindAllDeletedProducts`;
+const RESTORE_PRODUCT_URL = `${API_BASE_URL}/RestoreProduct`;
+
+interface RestoreProductParams {
+  productId: string;
+  categoryId: string;
+  brandId: string;
+  subCategoryId: string;
+}
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
@@ -102,6 +110,35 @@ export const CategoryService = {
     } catch (error) {
       console.error('Error fetching deleted products:', error);
       throw error;
+    }
+  },
+
+  async restoreProduct(params: RestoreProductParams): Promise<void> {
+    try {
+      // Construct URL with query parameters
+      const url = `${RESTORE_PRODUCT_URL}?productId=${encodeURIComponent(params.productId)}&categoryId=${encodeURIComponent(params.categoryId)}&brandId=${encodeURIComponent(params.brandId)}&subCategoryId=${encodeURIComponent(params.subCategoryId)}`;
+      console.log('Restoring product:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(errorText || 'Failed to restore product');
+      }
+
+      const responseText = await response.text();
+      console.log('Restore response:', responseText);
+    } catch (error) {
+      console.error('Error restoring product:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to restore product');
     }
   }
 };
