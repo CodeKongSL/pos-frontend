@@ -6,6 +6,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 const FIND_ALL_CATEGORY_URL = `${API_BASE_URL}/FindAllCategory`;
 const CREATE_CATEGORY_URL = `${API_BASE_URL}/CreateCategory`;
 const DELETE_CATEGORY_URL = `${API_BASE_URL}/DeleteCategory`;
+const FIND_ALL_DELETED_PRODUCTS_URL = `${API_BASE_URL}/FindAllDeletedProducts`;
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
@@ -84,6 +85,23 @@ export const CategoryService = {
     } catch (error) {
       console.error('Error deleting category:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to delete category');
+    }
+  },
+
+  async getAllDeletedProducts(): Promise<any[]> {
+    try {
+      console.log('Making API request to:', FIND_ALL_DELETED_PRODUCTS_URL);
+      const response = await fetch(FIND_ALL_DELETED_PRODUCTS_URL);
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        throw new Error('Failed to fetch deleted products');
+      }
+      const data = await response.json();
+      console.log('Raw API response:', data);
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Error fetching deleted products:', error);
+      throw error;
     }
   }
 };

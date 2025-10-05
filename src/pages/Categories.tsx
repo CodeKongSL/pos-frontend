@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Tag, FolderOpen, Edit2, Trash2, Search } from 'lucide-react';
 import CategoryProductsModal from '../components/CategoryProductsModal';
+import UncategorizedOrDeletedProductsModal from '../components/UncategorizedOrDeletedProductsModal';
 
 // Types
 interface Category {
@@ -10,21 +11,7 @@ interface Category {
   updated_at: string;
 }
 
-interface Product {
-  productId: string;
-  name: string;
-  barcode?: string;
-  categoryId: string;
-  brandId: string;
-  subcategoryId?: string;
-  description: string;
-  costPrice: number;
-  sellingPrice: number;
-  stockQty: number;
-  created_at: string;
-  updated_at: string;
-  productSubcategories: any[];
-}
+import { Product } from '../types/product';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -41,6 +28,8 @@ const CategoriesPage = () => {
     name: string;
   } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isUncategorizedModalOpen, setIsUncategorizedModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -90,12 +79,16 @@ const CategoriesPage = () => {
     ).length;
   };
 
-  const getUncategorizedProductsCount = () => {
+  const getUncategorizedProducts = () => {
     return products.filter(p => 
       !p.categoryId || 
       p.categoryId.trim() === '' ||
       !categories.some(c => c.categoryId === p.categoryId)
-    ).length;
+    );
+  };
+
+  const getUncategorizedProductsCount = () => {
+    return getUncategorizedProducts().length;
   };
 
   const filteredCategories = categories.filter(cat =>
@@ -107,9 +100,17 @@ const CategoriesPage = () => {
     setIsModalOpen(true);
   };
 
+  const handleViewUncategorizedProducts = () => {
+    setIsUncategorizedModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedCategory(null);
+  };
+
+  const handleCloseUncategorizedModal = () => {
+    setIsUncategorizedModalOpen(false);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -162,7 +163,7 @@ const CategoriesPage = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -187,7 +188,10 @@ const CategoriesPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div 
+            className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={handleViewUncategorizedProducts}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-bold text-gray-900">{getUncategorizedProductsCount()}</p>
@@ -195,6 +199,21 @@ const CategoriesPage = () => {
               </div>
               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                 <FolderOpen className="w-6 h-6 text-gray-600" />
+              </div>
+            </div>
+          </div>
+
+          <div 
+            className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={handleViewUncategorizedProducts}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-3xl font-bold text-gray-900">0</p>
+                <p className="text-gray-600 mt-1">Deleted Products</p>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -285,6 +304,13 @@ const CategoriesPage = () => {
           categoryName={selectedCategory.name}
         />
       )}
+
+      {/* Uncategorized or Deleted Products Modal */}
+      <UncategorizedOrDeletedProductsModal
+        isOpen={isUncategorizedModalOpen}
+        onClose={handleCloseUncategorizedModal}
+        uncategorizedProducts={getUncategorizedProducts()}
+      />
     </div>
   );
 };
