@@ -20,6 +20,7 @@ import { CategoryService } from '../components/category/services/category.servic
 const CategoriesPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,12 +39,14 @@ const CategoriesPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [categoriesData, productsData] = await Promise.all([
+      const [categoriesData, productsData, deletedProductsData] = await Promise.all([
         fetchCategories(),
-        fetchProducts()
+        fetchProducts(),
+        fetchDeletedProducts()
       ]);
       setCategories(categoriesData);
       setProducts(productsData);
+      setDeletedProducts(deletedProductsData);
       setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -65,6 +68,16 @@ const CategoriesPage = () => {
     if (!response.ok) throw new Error('Failed to fetch products');
     const data = await response.json();
     return Array.isArray(data) ? data : [];
+  };
+
+  const fetchDeletedProducts = async (): Promise<Product[]> => {
+    try {
+      const products = await CategoryService.getAllDeletedProducts();
+      return products;
+    } catch (error) {
+      console.error('Error fetching deleted products:', error);
+      return [];
+    }
   };
 
   const getProductCountByCategory = (categoryId: string) => {
@@ -91,6 +104,14 @@ const CategoriesPage = () => {
     return getUncategorizedProducts().length;
   };
 
+  const getDeletedProductsCount = () => {
+    return deletedProducts.length;
+  };
+
+  const getCombinedCount = () => {
+    return getUncategorizedProductsCount() + getDeletedProductsCount();
+  };
+
   const filteredCategories = categories.filter(cat =>
     cat.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -100,7 +121,7 @@ const CategoriesPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleViewUncategorizedProducts = () => {
+  const handleViewUncategorizedOrDeletedProducts = () => {
     setIsUncategorizedModalOpen(true);
   };
 
@@ -163,7 +184,7 @@ const CategoriesPage = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -190,30 +211,18 @@ const CategoriesPage = () => {
 
           <div 
             className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleViewUncategorizedProducts}
+            onClick={handleViewUncategorizedOrDeletedProducts}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">{getUncategorizedProductsCount()}</p>
-                <p className="text-gray-600 mt-1">Uncategorized</p>
+                <p className="text-3xl font-bold text-gray-900">{getCombinedCount()}</p>
+                <p className="text-gray-600 mt-1">Uncategorized/Deleted</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {getUncategorizedProductsCount()} uncategorized, {getDeletedProductsCount()} deleted
+                </p>
               </div>
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-gray-600" />
-              </div>
-            </div>
-          </div>
-
-          <div 
-            className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleViewUncategorizedProducts}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold text-gray-900">0</p>
-                <p className="text-gray-600 mt-1">Deleted Products</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <FolderOpen className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -310,6 +319,7 @@ const CategoriesPage = () => {
         isOpen={isUncategorizedModalOpen}
         onClose={handleCloseUncategorizedModal}
         uncategorizedProducts={getUncategorizedProducts()}
+        deletedProducts={deletedProducts}
       />
     </div>
   );

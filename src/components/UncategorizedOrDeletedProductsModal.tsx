@@ -1,51 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Search, AlertCircle, Loader2 } from 'lucide-react';
-import { CategoryService } from './category/services/category.service';
+import { X, Package, Search, AlertCircle } from 'lucide-react';
 import { Product } from '../types/product';
 
 interface UncategorizedOrDeletedProductsModalProps {
   isOpen: boolean;
   onClose: () => void;
   uncategorizedProducts: Product[];
+  deletedProducts: Product[];
 }
 
 const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProductsModalProps> = ({
   isOpen,
   onClose,
-  uncategorizedProducts
+  uncategorizedProducts,
+  deletedProducts
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'uncategorized' | 'deleted'>('uncategorized');
 
   useEffect(() => {
     if (isOpen) {
       setSearchTerm('');
-      fetchDeletedProducts();
+      // Set active tab based on which has products
+      if (uncategorizedProducts.length > 0) {
+        setActiveTab('uncategorized');
+      } else if (deletedProducts.length > 0) {
+        setActiveTab('deleted');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, uncategorizedProducts.length, deletedProducts.length]);
 
   useEffect(() => {
     updateFilteredProducts();
   }, [searchTerm, uncategorizedProducts, deletedProducts, activeTab]);
-
-  const fetchDeletedProducts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const products = await CategoryService.getAllDeletedProducts();
-      setDeletedProducts(products);
-    } catch (err) {
-      console.error('Error fetching deleted products:', err);
-      setError('Failed to load deleted products');
-      setDeletedProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateFilteredProducts = () => {
     const sourceProducts = activeTab === 'uncategorized' ? uncategorizedProducts : deletedProducts;
@@ -80,19 +68,15 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-red-600" />
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Package className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                     Uncategorized or Deleted Products
                   </h2>
                   <p className="text-sm text-gray-600 mt-0.5">
-                    {activeTab === 'uncategorized' ? (
-                      `${uncategorizedProducts.length} ${uncategorizedProducts.length === 1 ? 'product' : 'products'} without category`
-                    ) : (
-                      `${deletedProducts.length} ${deletedProducts.length === 1 ? 'product' : 'products'} marked as deleted`
-                    )}
+                    {uncategorizedProducts.length} uncategorized, {deletedProducts.length} deleted
                   </p>
                 </div>
               </div>
@@ -108,7 +92,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('uncategorized')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 ${
+                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'uncategorized'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -118,7 +102,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
               </button>
               <button
                 onClick={() => setActiveTab('deleted')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 ${
+                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'deleted'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -144,23 +128,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
 
             {/* Products List */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {loading ? (
-                <div className="text-center py-12">
-                  <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
-                  <p className="text-gray-600">Loading products...</p>
-                </div>
-              ) : error && activeTab === 'deleted' ? (
-                <div className="text-center py-12">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{error}</h3>
-                  <button
-                    onClick={fetchDeletedProducts}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              ) : filteredProducts.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <div className="text-center py-12">
                   {searchTerm ? (
                     <>
@@ -217,10 +185,10 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                           )}
                           <div className="flex flex-wrap gap-2 mt-2">
                             <span className="text-xs text-gray-500">
-                              Category: {product.categoryId}
+                              Category: {product.categoryId || 'None'}
                             </span>
                             <span className="text-xs text-gray-500">
-                              Brand: {product.brandId}
+                              Brand: {product.brandId || 'None'}
                             </span>
                           </div>
                         </div>
@@ -254,17 +222,17 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
             </div>
 
             {/* Footer */}
-            {!loading && !error && activeProducts.length > 0 && (
+            {activeProducts.length > 0 && (
               <div className={`border-t border-gray-200 p-4 sm:p-6 ${
-                activeTab === 'uncategorized' ? 'bg-blue-50' : 'bg-red-50'
+                activeTab === 'uncategorized' ? 'bg-yellow-50' : 'bg-red-50'
               }`}>
                 <div className="flex items-start gap-3">
                   <AlertCircle className={`w-5 h-5 ${
-                    activeTab === 'uncategorized' ? 'text-blue-600' : 'text-red-600'
+                    activeTab === 'uncategorized' ? 'text-yellow-600' : 'text-red-600'
                   } flex-shrink-0 mt-0.5`} />
                   <div className="flex-1">
                     <p className={`text-sm ${
-                      activeTab === 'uncategorized' ? 'text-blue-900' : 'text-red-900'
+                      activeTab === 'uncategorized' ? 'text-yellow-900' : 'text-red-900'
                     }`}>
                       <strong>Note:</strong> {
                         activeTab === 'uncategorized'
