@@ -101,6 +101,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       // Calculate total stock quantity from all subcategories
       const stockQty = selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
 
+      // Format expiry date to RFC3339/ISO8601
+      const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toISOString(); // This will output in format: "2025-10-23T00:00:00.000Z"
+      };
+
       // Prepare product data
       const productData = {
         name: formData.name,
@@ -110,12 +116,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
         costPrice: Number(formData.costPrice),
         sellingPrice: Number(formData.sellingPrice),
         stockQty: stockQty,
-        subcategoryId: selectedSubcategories[0]?.subcategoryId || "", // Use first subcategory's ID
+        subCategoryId: selectedSubcategories[0]?.subcategoryId || "", // Use first subcategory's ID
         barcode: formData.barcode || undefined,
+        expiry_date: selectedSubcategories[0]?.expiryDate ? formatDate(selectedSubcategories[0].expiryDate) : undefined,
         productSubcategories: selectedSubcategories.map(sub => ({
           subcategoryId: sub.subcategoryId,
           quantity: sub.quantity,
-          expiryDate: sub.expiryDate,
+          expiryDate: formatDate(sub.expiryDate),
           price: sub.price
         }))
       };
