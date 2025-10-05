@@ -242,7 +242,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                                   Brand: {product.brandId || 'None'}
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                  Subcategory: {product.subCategoryId || 'None'}
+                                  Subcategory: {!product.subCategoryId || product.subCategoryId === 'NONE' ? 'None' : product.subCategoryId}
                                 </span>
                               </div>
                             </div>
