@@ -76,12 +76,25 @@ export default function Brands() {
   };
 
   const handleDeleteBrand = async (brandId: string, brandName: string) => {
+    // Find the brand to check product count
+    const brand = brands.find(b => b.id === brandId);
+    
+    if (brand && brand.productCount > 0) {
+      alert(
+        `Cannot delete this brand!\n\n` +
+        `This brand has ${brand.productCount} product(s) assigned to it.\n\n` +
+        `Please reassign or delete these products before deleting the brand.`
+      );
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete "${brandName}"?`)) {
       return;
     }
 
     try {
       await BrandService.deleteBrand(brandId);
+      alert('Brand deleted successfully!');
       // Refresh the brands list after successful deletion
       await fetchBrands();
     } catch (err) {
