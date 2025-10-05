@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Tag, FolderOpen, Edit2, Trash2, Search } from 'lucide-react';
 import CategoryProductsModal from '../components/CategoryProductsModal';
-import UncategorizedOrDeletedProductsModal from '../components/UncategorizedOrDeletedProductsModal';
+import DeletedProductsModal from '../components/DeletedProductsModal';
 
 // Types
 interface Category {
@@ -29,8 +29,7 @@ const CategoriesPage = () => {
     name: string;
   } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const [isUncategorizedModalOpen, setIsUncategorizedModalOpen] = useState(false);
+  const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -44,6 +43,13 @@ const CategoriesPage = () => {
         fetchProducts(),
         fetchDeletedProducts()
       ]);
+      
+      console.log('Fetched data:', {
+        categoriesCount: categoriesData.length,
+        productsCount: productsData.length,
+        deletedProductsCount: deletedProductsData.length
+      });
+      
       setCategories(categoriesData);
       setProducts(productsData);
       setDeletedProducts(deletedProductsData);
@@ -92,24 +98,8 @@ const CategoriesPage = () => {
     ).length;
   };
 
-  const getUncategorizedProducts = () => {
-    return products.filter(p => 
-      !p.categoryId || 
-      p.categoryId.trim() === '' ||
-      !categories.some(c => c.categoryId === p.categoryId)
-    );
-  };
-
-  const getUncategorizedProductsCount = () => {
-    return getUncategorizedProducts().length;
-  };
-
   const getDeletedProductsCount = () => {
     return deletedProducts.length;
-  };
-
-  const getCombinedCount = () => {
-    return getUncategorizedProductsCount() + getDeletedProductsCount();
   };
 
   const filteredCategories = categories.filter(cat =>
@@ -121,8 +111,8 @@ const CategoriesPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleViewUncategorizedOrDeletedProducts = () => {
-    setIsUncategorizedModalOpen(true);
+  const handleViewDeletedProducts = () => {
+    setIsDeletedModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -130,15 +120,28 @@ const CategoriesPage = () => {
     setSelectedCategory(null);
   };
 
-  const handleCloseUncategorizedModal = () => {
-    setIsUncategorizedModalOpen(false);
+  const handleCloseDeletedModal = () => {
+    setIsDeletedModalOpen(false);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
+    // Check if category has products
+    const productsInCategory = products.filter(p => p.categoryId === categoryId);
+    
+    if (productsInCategory.length > 0) {
+      alert(
+        `Cannot delete this category!\n\n` +
+        `This category has ${productsInCategory.length} product(s) assigned to it.\n\n` +
+        `Please reassign or delete these products before deleting the category.`
+      );
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
         await CategoryService.deleteCategory(categoryId);
         await fetchData();
+        alert('Category deleted successfully!');
       } catch (error) {
         console.error('Error deleting category:', error);
         alert('Failed to delete category. Please try again.');
@@ -211,18 +214,15 @@ const CategoriesPage = () => {
 
           <div 
             className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleViewUncategorizedOrDeletedProducts}
+            onClick={handleViewDeletedProducts}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">{getCombinedCount()}</p>
-                <p className="text-gray-600 mt-1">Uncategorized/Deleted</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {getUncategorizedProductsCount()} uncategorized, {getDeletedProductsCount()} deleted
-                </p>
+                <p className="text-3xl font-bold text-gray-900">{getDeletedProductsCount()}</p>
+                <p className="text-gray-600 mt-1">Deleted Products</p>
               </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <FolderOpen className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -314,11 +314,10 @@ const CategoriesPage = () => {
         />
       )}
 
-      {/* Uncategorized or Deleted Products Modal */}
-      <UncategorizedOrDeletedProductsModal
-        isOpen={isUncategorizedModalOpen}
-        onClose={handleCloseUncategorizedModal}
-        uncategorizedProducts={getUncategorizedProducts()}
+      {/* Deleted Products Modal */}
+      <DeletedProductsModal
+        isOpen={isDeletedModalOpen}
+        onClose={handleCloseDeletedModal}
         deletedProducts={deletedProducts}
         onProductRestored={fetchData}
       />
