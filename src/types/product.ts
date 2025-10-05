@@ -4,7 +4,7 @@ export interface Product {
   barcode?: string;
   categoryId: string;
   brandId: string;
-  subcategoryId?: string;
+  subCategoryId?: string;
   description?: string;
   costPrice: number;
   sellingPrice: number;

@@ -320,6 +320,7 @@ const CategoriesPage = () => {
         onClose={handleCloseUncategorizedModal}
         uncategorizedProducts={getUncategorizedProducts()}
         deletedProducts={deletedProducts}
+        onProductRestored={fetchData}
       />
     </div>
   );
