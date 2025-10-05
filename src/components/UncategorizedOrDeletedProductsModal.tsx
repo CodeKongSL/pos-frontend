@@ -110,19 +110,19 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
 
       {/* Modal */}
       <div className="fixed inset-0 overflow-hidden">
-        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl flex flex-col">
+        <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
+          <div className="relative w-full max-w-[95vw] sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-lg shadow-xl flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                   <Package className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  <h2 className="text-base sm:text-xl font-semibold text-gray-900">
                     Uncategorized or Deleted Products
                   </h2>
-                  <p className="text-sm text-gray-600 mt-0.5">
+                  <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
                     {uncategorizedProducts.length} uncategorized, {deletedProducts.length} deleted
                   </p>
                 </div>
@@ -211,14 +211,14 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                         key={product.productId}
                         className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
                       >
-                        <div className="flex flex-col gap-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
+                        <div className="flex flex-col gap-2 sm:gap-3">
+                          <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-3">
+                            <div className="flex-1 w-full sm:min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-base font-semibold text-gray-900 truncate">
+                                <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                                   {product.name}
                                 </h3>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
                                   activeTab === 'uncategorized'
                                     ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-red-100 text-red-800'
@@ -246,20 +246,21 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                                 </span>
                               </div>
                             </div>
-                            <div className="flex flex-row sm:flex-col gap-3 sm:gap-2 items-start sm:items-end">
-                              <div className="text-left sm:text-right">
+                            <div className="flex flex-row justify-between sm:flex-col gap-2 sm:gap-2 items-start sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-gray-200 pt-2 sm:pt-0 mt-2 sm:mt-0">
+                              <div className="text-left">
                                 <p className="text-xs text-gray-500">Cost Price</p>
                                 <p className="text-sm font-medium text-gray-700">
                                   Rs. {product.costPrice.toLocaleString()}
                                 </p>
                               </div>
-                              <div className="text-left sm:text-right">
+                              <div className="text-left">
                                 <p className="text-xs text-gray-500">Selling Price</p>
                                 <p className="text-base font-semibold text-gray-900">
                                   Rs. {product.sellingPrice.toLocaleString()}
                                 </p>
                               </div>
-                              <div className="text-left sm:text-right">
+                              <div className="text-left">
+
                                 <p className="text-xs text-gray-500">Stock</p>
                                 <p className={`text-sm font-medium ${
                                   product.stockQty > 0 ? 'text-green-600' : 'text-red-600'
@@ -272,11 +273,11 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
 
                           {/* Action Buttons for Deleted Products */}
                           {activeTab === 'deleted' && (
-                            <div className="flex gap-2 pt-2 border-t border-gray-200">
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-200">
                               <button
                                 onClick={() => handleRestoreProduct(product)}
                                 disabled={isRestoring}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
                               >
                                 <RotateCcw className={`w-4 h-4 ${isRestoring ? 'animate-spin' : ''}`} />
                                 {isRestoring ? 'Restoring...' : 'Restore'}
@@ -284,7 +285,7 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                               <button
                                 onClick={() => handleDeletePermanently(product)}
                                 disabled={isRestoring}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 Delete Permanently
