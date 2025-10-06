@@ -212,15 +212,16 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     // Auto-generate product name from brand and subcategory
     const generatedName = `${brandName} ${subcategoryData.subcategoryName}`.trim();
     
-    // Calculate total cost (quantity × unit price)
-    const totalCost = (subcategoryData.quantity * subcategoryData.price).toFixed(2);
-    
-    // Update form with generated name and calculated cost
+    // Use unit price instead of total cost
+    const unitPrice = subcategoryData.price.toFixed(2);
+
+    // Update form with generated name and unit price
     setFormData(prev => ({
       ...prev,
       name: generatedName,
-      costPrice: totalCost
+      costPrice: unitPrice
     }));
+
 
     setSubcategoryDialogOpen(false);
   };
@@ -445,19 +446,20 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="costPrice">Cost Price *</Label>
+                <Label htmlFor="costPrice">Unit Price *</Label>
                 <input
                   type="number"
                   id="costPrice"
                   className="w-full px-3 py-2 border rounded-md"
-                  placeholder="Auto-calculated from quantity and unit price"
+                  placeholder="Auto-filled with subcategory unit price"
                   value={formData.costPrice}
                   onChange={(e) => handleInputChange("costPrice", e.target.value)}
                   disabled={true}
                   min="0"
                   step="0.01"
-                  title="Cost is automatically calculated as quantity × unit price"
+                  title="This is the unit cost per item, auto-filled from subcategory"
                 />
+
               </div>
 
               <div className="space-y-2">
