@@ -4,10 +4,54 @@ import { Product, ProductCreate, ProductCreateRequest } from '../models/product.
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_PRODUCTS_URL = `${API_BASE_URL}/FindAllProducts`;
+const FIND_PRODUCT_BY_ID_URL = `${API_BASE_URL}/FindProductByProductId`;
 const CREATE_PRODUCT_URL = `${API_BASE_URL}/CreateProduct`;
 const DELETE_PRODUCT_URL = `${API_BASE_URL}/DeleteProducts`;
 
 export const ProductService = {
+  async getProductById(productId: string): Promise<Product> {
+    try {
+      console.log('Fetching product by ID:', productId);
+      const url = `${FIND_PRODUCT_BY_ID_URL}?productId=${encodeURIComponent(productId)}`;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Raw API response:', data);
+      
+      // Transform the API response to match our Product interface
+      const product: Product = {
+        productId: data.productId || '',
+        name: data.name || '',
+        barcode: data.barcode || '',
+        categoryId: data.categoryId || '',
+        brandId: data.brandId || '',
+        subCategoryId: data.subCategoryId || '',
+        description: data.description || '',
+        costPrice: Number(data.costPrice) || 0,
+        sellingPrice: Number(data.sellingPrice) || 0,
+        stockQty: Number(data.stockQty) || 0,
+        expiry_date: data.expiry_date || '',
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || '',
+        deleted: data.deleted || false,
+        productSubcategories: data.productSubcategories || []
+      };
+      
+      console.log('Transformed product:', product);
+      return product;
+    } catch (error) {
+      console.error('Error fetching product by ID:', error);
+      throw error;
+    }
+  },
+
   async getAllProducts(): Promise<Product[]> {
     try {
       console.log('Making API request:', FIND_ALL_PRODUCTS_URL);
