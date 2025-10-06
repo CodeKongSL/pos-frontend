@@ -12,6 +12,8 @@ import { Category } from "@/components/category/models/category.model";
 import { CategoryService } from "@/components/category/services/category.service";
 import { Brand } from "@/components/brand/models/brand.model";
 import { BrandService } from "@/components/brand/services/brand.service";
+import { Subcategory } from "@/components/subcategory/models/subcategory.model";
+import { SubcategoryService } from "@/components/subcategory/services/subcategory.service";
 import { Badge } from "@/components/ui/badge";
 
 interface ProductDetailsDialogProps {
@@ -24,6 +26,7 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
   const [product, setProduct] = useState<Product | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [brand, setBrand] = useState<Brand | null>(null);
+  const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,17 +43,33 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
       const productData = await ProductService.getProductById(productId);
       setProduct(productData);
 
-      // Fetch category and brand details
-      const [categories, brands] = await Promise.all([
+      // Fetch category, brand, and subcategory details
+      const [categories, brands, subcategories] = await Promise.all([
         CategoryService.getAllCategories(),
-        BrandService.getAllBrands()
+        BrandService.getAllBrands(),
+        SubcategoryService.getAllSubcategories()
       ]);
+
+      console.log('Product subCategoryId:', productData.subCategoryId);
+      console.log('Available subcategories:', subcategories);
+      console.log('First subcategory structure:', subcategories[0]);
 
       const foundCategory = categories.find(c => c.categoryId === productData.categoryId);
       const foundBrand = brands.find(b => b.brandId === productData.brandId);
+      
+      // Try multiple field name variations for subcategory matching
+      const foundSubcategory = productData.subCategoryId 
+        ? subcategories.find(sc => {
+            // The API returns subCategoryId (with capital C)
+            const scId = sc.subCategoryId || sc.subcategoryId;
+            const prodId = productData.subCategoryId;
+            return scId?.toLowerCase() === prodId?.toLowerCase();
+          })
+        : null;
 
       setCategory(foundCategory || null);
       setBrand(foundBrand || null);
+      setSubcategory(foundSubcategory || null);
     } catch (err) {
       console.error("Error fetching product details:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch product details");
@@ -201,17 +220,20 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
                 </div>
               </div>
 
-              {/* Subcategory ID */}
+              {/* Subcategory */}
               {product.subCategoryId && (
                 <div className="flex items-start gap-3 p-4 rounded-lg border bg-card">
                   <div className="p-2 rounded-md bg-purple-500/10">
                     <Layers className="h-5 w-5 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Subcategory ID</p>
+                    <p className="text-sm font-medium text-muted-foreground">Subcategory</p>
                     <p className="text-base font-semibold text-foreground mt-1">
-                      {product.subCategoryId}
+                      {subcategory?.name || product.subCategoryId}
                     </p>
+                    {subcategory && (
+                      <p className="text-xs text-muted-foreground mt-1">ID: {product.subCategoryId}</p>
+                    )}
                   </div>
                 </div>
               )}

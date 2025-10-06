@@ -1,5 +1,6 @@
 export interface Subcategory {
   subcategoryId: string;
+  subCategoryId?: string;
   name: string;
   brandId: string;
   created_at: string;
