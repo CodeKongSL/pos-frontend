@@ -4,10 +4,54 @@ import { Product, ProductCreate, ProductCreateRequest } from '../models/product.
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_PRODUCTS_URL = `${API_BASE_URL}/FindAllProducts`;
+const FIND_PRODUCT_BY_ID_URL = `${API_BASE_URL}/FindProductByProductId`;
 const CREATE_PRODUCT_URL = `${API_BASE_URL}/CreateProduct`;
 const DELETE_PRODUCT_URL = `${API_BASE_URL}/DeleteProducts`;
 
 export const ProductService = {
+  async getProductById(productId: string): Promise<Product> {
+    try {
+      console.log('Fetching product by ID:', productId);
+      const url = `${FIND_PRODUCT_BY_ID_URL}?productId=${encodeURIComponent(productId)}`;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Raw API response:', data);
+      
+      // Transform the API response to match our Product interface
+      const product: Product = {
+        productId: data.productId || '',
+        name: data.name || '',
+        barcode: data.barcode || '',
+        categoryId: data.categoryId || '',
+        brandId: data.brandId || '',
+        subCategoryId: data.subCategoryId || '',
+        description: data.description || '',
+        costPrice: Number(data.costPrice) || 0,
+        sellingPrice: Number(data.sellingPrice) || 0,
+        stockQty: Number(data.stockQty) || 0,
+        expiry_date: data.expiry_date || '',
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || '',
+        deleted: data.deleted || false,
+        productSubcategories: data.productSubcategories || []
+      };
+      
+      console.log('Transformed product:', product);
+      return product;
+    } catch (error) {
+      console.error('Error fetching product by ID:', error);
+      throw error;
+    }
+  },
+
   async getAllProducts(): Promise<Product[]> {
     try {
       console.log('Making API request:', FIND_ALL_PRODUCTS_URL);
@@ -22,21 +66,25 @@ export const ProductService = {
       console.log('Raw API response:', data);
       
       // Transform the API response to match our Product interface
-      const products: Product[] = data.map((item: any) => ({
-        productId: item.productId || '',
-        name: item.name || '',
-        barcode: item.barcode || '',
-        categoryId: item.categoryId || '',
-        brandId: item.brandId || '',
-        subcategoryId: item.subcategoryId || '',
-        description: item.description || '',
-        costPrice: Number(item.costPrice) || 0,
-        sellingPrice: Number(item.sellingPrice) || 0,
-        stockQty: Number(item.stockQty) || 0,
-        created_at: item.created_at || '',
-        updated_at: item.updated_at || '',
-        productSubcategories: item.productSubcategories || []
-      }));
+      const products: Product[] = data.map((item: any) => {
+        return {
+          productId: item.productId || '',
+          name: item.name || '',
+          barcode: item.barcode || '',
+          categoryId: item.categoryId || '',
+          brandId: item.brandId || '',
+          subCategoryId: item.subCategoryId || '',
+          description: item.description || '',
+          costPrice: Number(item.costPrice) || 0,
+          sellingPrice: Number(item.sellingPrice) || 0,
+          stockQty: Number(item.stockQty) || 0,
+          expiry_date: item.expiry_date || '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
+          deleted: item.deleted || false,
+          productSubcategories: item.productSubcategories || []
+        };
+      });
       
       console.log('Transformed products:', products);
       return products;
@@ -48,13 +96,20 @@ export const ProductService = {
 
   async createProduct(productData: ProductCreateRequest): Promise<Product> {
     try {
-      console.log('Creating product with data:', JSON.stringify(productData, null, 2));
+      // Format the request data to match backend expectations
+      const requestData = {
+        ...productData,
+        subCategoryId: productData.subCategoryId,
+        expiry_date: productData.productSubcategories?.[0]?.expiryDate
+      };
+      
+      console.log('Creating product with data:', JSON.stringify(requestData, null, 2));
       
       // Generate a unique product ID if not provided
-      if (!productData.productId) {
+      if (!requestData.productId) {
         const timestamp = Date.now();
         const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        productData.productId = `PRD-${timestamp}-${randomPart}`;
+        requestData.productId = `PRD-${timestamp}-${randomPart}`;
       }
 
       console.log('Using product ID:', productData.productId);
@@ -70,10 +125,22 @@ export const ProductService = {
         if (sub.quantity <= 0) throw new Error(`Subcategory ${index + 1}: Quantity must be greater than 0`);
         if (!sub.expiryDate) throw new Error(`Subcategory ${index + 1}: Expiry date is required`);
         if (sub.price <= 0) throw new Error(`Subcategory ${index + 1}: Price must be greater than 0`);
+        
+        // Validate date format
+        try {
+          new Date(sub.expiryDate).toISOString();
+        } catch (error) {
+          throw new Error(`Subcategory ${index + 1}: Invalid date format. Must be ISO 8601 format`);
+        }
       });
+
+      // Add expiry_date from the first subcategory
+      if (productData.productSubcategories?.[0]) {
+        productData.expiry_date = productData.productSubcategories[0].expiryDate;
+      }
       
       console.log('Request URL:', CREATE_PRODUCT_URL);
-      console.log('Request payload:', JSON.stringify(productData, null, 2));
+      console.log('Request payload:', JSON.stringify(requestData, null, 2));
       
       const response = await fetch(CREATE_PRODUCT_URL, {
         method: 'POST',
@@ -81,7 +148,7 @@ export const ProductService = {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(productData)
+        body: JSON.stringify(requestData)
       });
 
       console.log('Response status:', response.status);
@@ -115,8 +182,15 @@ export const ProductService = {
 
       // Try to parse the response as JSON if it's not empty
       const data = responseText ? JSON.parse(responseText) : {};
+      
+      // Transform the response if needed
+      const transformedProduct: Product = {
+        ...data,
+        expiry_date: data.expiry_date || '',  // Use the expiry_date directly from the backend response
+        productSubcategories: data.productSubcategories || []
+      };
 
-      return data as Product;
+      return transformedProduct;
     } catch (error) {
       console.error('Error creating product:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to create product');

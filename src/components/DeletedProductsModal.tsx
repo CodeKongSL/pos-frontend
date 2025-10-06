@@ -3,48 +3,38 @@ import { X, Package, Search, AlertCircle, RotateCcw, Trash2 } from 'lucide-react
 import { Product } from '../types/product';
 import { CategoryService } from './category/services/category.service';
 
-interface UncategorizedOrDeletedProductsModalProps {
+interface DeletedProductsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  uncategorizedProducts: Product[];
   deletedProducts: Product[];
   onProductRestored?: () => void;
 }
 
-const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProductsModalProps> = ({
+const DeletedProductsModal: React.FC<DeletedProductsModalProps> = ({
   isOpen,
   onClose,
-  uncategorizedProducts,
   deletedProducts,
   onProductRestored
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [activeTab, setActiveTab] = useState<'uncategorized' | 'deleted'>('uncategorized');
   const [restoringProducts, setRestoringProducts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen) {
       setSearchTerm('');
-      // Set active tab based on which has products
-      if (uncategorizedProducts.length > 0) {
-        setActiveTab('uncategorized');
-      } else if (deletedProducts.length > 0) {
-        setActiveTab('deleted');
-      }
     }
-  }, [isOpen, uncategorizedProducts.length, deletedProducts.length]);
+  }, [isOpen]);
 
   useEffect(() => {
     updateFilteredProducts();
-  }, [searchTerm, uncategorizedProducts, deletedProducts, activeTab]);
+  }, [searchTerm, deletedProducts]);
 
   const updateFilteredProducts = () => {
-    const sourceProducts = activeTab === 'uncategorized' ? uncategorizedProducts : deletedProducts;
     if (searchTerm.trim() === '') {
-      setFilteredProducts(sourceProducts);
+      setFilteredProducts(deletedProducts);
     } else {
-      const filtered = sourceProducts.filter(product =>
+      const filtered = deletedProducts.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.barcode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.productId?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -60,13 +50,25 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to restore "${product.name}"?`)) {
+    const restoreMessage = `Restore "${product.name}"?\n\n` +
+      `Category ID: ${product.categoryId}\n` +
+      `Brand ID: ${product.brandId}\n` +
+      `Subcategory ID: ${product.subCategoryId || 'NONE'}`;
+
+    if (!window.confirm(restoreMessage)) {
       return;
     }
 
     setRestoringProducts(prev => new Set(prev).add(product.productId));
 
     try {
+      console.log('Restoring product with data:', {
+        productId: product.productId,
+        categoryId: product.categoryId,
+        brandId: product.brandId,
+        subCategoryId: product.subCategoryId || 'NONE'
+      });
+
       await CategoryService.restoreProduct({
         productId: product.productId,
         categoryId: product.categoryId,
@@ -74,12 +76,17 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
         subCategoryId: product.subCategoryId || 'NONE'
       });
 
-      alert('Product restored successfully!');
+      console.log('Product restored successfully, refreshing data...');
       
-      // Notify parent to refresh data
+      // Notify parent to refresh data and wait for it to complete
       if (onProductRestored) {
-        onProductRestored();
+        await onProductRestored();
       }
+
+      // Give a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      alert('Product restored successfully! The product is now active and visible in the Products page.');
     } catch (error) {
       console.error('Error restoring product:', error);
       alert(error instanceof Error ? error.message : 'Failed to restore product. Please try again.');
@@ -98,8 +105,6 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
 
   if (!isOpen) return null;
 
-  const activeProducts = activeTab === 'uncategorized' ? uncategorizedProducts : deletedProducts;
-
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
@@ -115,15 +120,15 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
             {/* Header */}
             <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-orange-600" />
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <Package className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
                   <h2 className="text-base sm:text-xl font-semibold text-gray-900">
-                    Uncategorized or Deleted Products
+                    Deleted Products
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                    {uncategorizedProducts.length} uncategorized, {deletedProducts.length} deleted
+                    {deletedProducts.length} {deletedProducts.length === 1 ? 'product' : 'products'}
                   </p>
                 </div>
               </div>
@@ -132,30 +137,6 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('uncategorized')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'uncategorized'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Uncategorized ({uncategorizedProducts.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('deleted')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'deleted'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Deleted ({deletedProducts.length})
               </button>
             </div>
 
@@ -191,12 +172,10 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                     <>
                       <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {activeTab === 'uncategorized' ? 'No uncategorized products' : 'No deleted products'}
+                        No deleted products
                       </h3>
                       <p className="text-gray-600">
-                        {activeTab === 'uncategorized'
-                          ? 'All products have been categorized'
-                          : 'There are no deleted products at this time'}
+                        There are no deleted products at this time
                       </p>
                     </>
                   )}
@@ -218,12 +197,8 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                                 <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                                   {product.name}
                                 </h3>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
-                                  activeTab === 'uncategorized'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                } flex-shrink-0`}>
-                                  {activeTab === 'uncategorized' ? 'Uncategorized' : 'Deleted'}
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium bg-red-100 text-red-800 flex-shrink-0">
+                                  Deleted
                                 </span>
                               </div>
                               <p className="text-sm text-gray-600 mb-1">
@@ -260,7 +235,6 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                                 </p>
                               </div>
                               <div className="text-left">
-
                                 <p className="text-xs text-gray-500">Stock</p>
                                 <p className={`text-sm font-medium ${
                                   product.stockQty > 0 ? 'text-green-600' : 'text-red-600'
@@ -271,27 +245,25 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
                             </div>
                           </div>
 
-                          {/* Action Buttons for Deleted Products */}
-                          {activeTab === 'deleted' && (
-                            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-200">
-                              <button
-                                onClick={() => handleRestoreProduct(product)}
-                                disabled={isRestoring}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
-                              >
-                                <RotateCcw className={`w-4 h-4 ${isRestoring ? 'animate-spin' : ''}`} />
-                                {isRestoring ? 'Restoring...' : 'Restore'}
-                              </button>
-                              <button
-                                onClick={() => handleDeletePermanently(product)}
-                                disabled={isRestoring}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete Permanently
-                              </button>
-                            </div>
-                          )}
+                          {/* Action Buttons */}
+                          <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleRestoreProduct(product)}
+                              disabled={isRestoring}
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
+                            >
+                              <RotateCcw className={`w-4 h-4 ${isRestoring ? 'animate-spin' : ''}`} />
+                              {isRestoring ? 'Restoring...' : 'Restore'}
+                            </button>
+                            <button
+                              onClick={() => handleDeletePermanently(product)}
+                              disabled={isRestoring}
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium min-h-[44px] sm:min-h-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Permanently
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -301,23 +273,13 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
             </div>
 
             {/* Footer */}
-            {activeProducts.length > 0 && (
-              <div className={`border-t border-gray-200 p-4 sm:p-6 ${
-                activeTab === 'uncategorized' ? 'bg-yellow-50' : 'bg-red-50'
-              }`}>
+            {deletedProducts.length > 0 && (
+              <div className="border-t border-gray-200 p-4 sm:p-6 bg-red-50">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className={`w-5 h-5 ${
-                    activeTab === 'uncategorized' ? 'text-yellow-600' : 'text-red-600'
-                  } flex-shrink-0 mt-0.5`} />
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className={`text-sm ${
-                      activeTab === 'uncategorized' ? 'text-yellow-900' : 'text-red-900'
-                    }`}>
-                      <strong>Note:</strong> {
-                        activeTab === 'uncategorized'
-                          ? 'These products have not been assigned to any category. Assign them to categories to better organize your inventory.'
-                          : 'These products have been marked as deleted. You can restore them or permanently remove them from the system.'
-                      }
+                    <p className="text-sm text-red-900">
+                      <strong>Note:</strong> These products have been marked as deleted. You can restore them to bring them back into your active inventory, or permanently remove them from the system.
                     </p>
                   </div>
                 </div>
@@ -330,4 +292,4 @@ const UncategorizedOrDeletedProductsModal: React.FC<UncategorizedOrDeletedProduc
   );
 };
 
-export default UncategorizedOrDeletedProductsModal;
+export default DeletedProductsModal;

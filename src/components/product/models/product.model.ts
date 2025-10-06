@@ -4,15 +4,16 @@ export interface Product {
   barcode?: string;
   categoryId: string;
   brandId: string;
-  subcategoryId?: string;
-  description: string;
+  subCategoryId?: string;
+  description?: string;
   costPrice: number;
   sellingPrice: number;
   stockQty: number;
   expiry_date?: string;
   created_at: string;
   updated_at: string;
-  productSubcategories: ProductSubcategory[];
+  deleted: boolean;
+  productSubcategories?: ProductSubcategory[];
 }
 
 export interface ProductSubcategory {
@@ -40,11 +41,12 @@ export interface ProductCreateRequest {
   name: string;
   categoryId: string;
   brandId: string;
-  subcategoryId: string;
+  subCategoryId: string;
   description: string;
   costPrice: number;
   sellingPrice: number;
   stockQty: number;
   barcode?: string;
+  expiry_date?: string;
   productSubcategories: ProductSubcategory[];
 }

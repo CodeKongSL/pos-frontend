@@ -101,6 +101,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       // Calculate total stock quantity from all subcategories
       const stockQty = selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
 
+      // Format expiry date to RFC3339/ISO8601
+      const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toISOString(); // This will output in format: "2025-10-23T00:00:00.000Z"
+      };
+
       // Prepare product data
       const productData = {
         name: formData.name,
@@ -110,12 +116,13 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
         costPrice: Number(formData.costPrice),
         sellingPrice: Number(formData.sellingPrice),
         stockQty: stockQty,
-        subcategoryId: selectedSubcategories[0]?.subcategoryId || "", // Use first subcategory's ID
+        subCategoryId: selectedSubcategories[0]?.subcategoryId || "", // Use first subcategory's ID
         barcode: formData.barcode || undefined,
+        expiry_date: selectedSubcategories[0]?.expiryDate ? formatDate(selectedSubcategories[0].expiryDate) : undefined,
         productSubcategories: selectedSubcategories.map(sub => ({
           subcategoryId: sub.subcategoryId,
           quantity: sub.quantity,
-          expiryDate: sub.expiryDate,
+          expiryDate: formatDate(sub.expiryDate),
           price: sub.price
         }))
       };
@@ -205,15 +212,16 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     // Auto-generate product name from brand and subcategory
     const generatedName = `${brandName} ${subcategoryData.subcategoryName}`.trim();
     
-    // Calculate total cost (quantity × unit price)
-    const totalCost = (subcategoryData.quantity * subcategoryData.price).toFixed(2);
-    
-    // Update form with generated name and calculated cost
+    // Use unit price instead of total cost
+    const unitPrice = subcategoryData.price.toFixed(2);
+
+    // Update form with generated name and unit price
     setFormData(prev => ({
       ...prev,
       name: generatedName,
-      costPrice: totalCost
+      costPrice: unitPrice
     }));
+
 
     setSubcategoryDialogOpen(false);
   };
@@ -438,19 +446,20 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="costPrice">Cost Price *</Label>
+                <Label htmlFor="costPrice">Unit Price *</Label>
                 <input
                   type="number"
                   id="costPrice"
                   className="w-full px-3 py-2 border rounded-md"
-                  placeholder="Auto-calculated from quantity and unit price"
+                  placeholder="Auto-filled with subcategory unit price"
                   value={formData.costPrice}
                   onChange={(e) => handleInputChange("costPrice", e.target.value)}
                   disabled={true}
                   min="0"
                   step="0.01"
-                  title="Cost is automatically calculated as quantity × unit price"
+                  title="This is the unit cost per item, auto-filled from subcategory"
                 />
+
               </div>
 
               <div className="space-y-2">

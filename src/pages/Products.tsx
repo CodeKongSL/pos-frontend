@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AddProductDialog } from "@/components/AddProductDialog";
+import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +51,8 @@ export default function Products() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<DisplayProduct | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -138,6 +141,11 @@ export default function Products() {
     }
   };
 
+  const handleViewDetails = (productId: string) => {
+    setSelectedProductId(productId);
+    setDetailsDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -199,7 +207,7 @@ export default function Products() {
                 <TableHead>Brand</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Stock</TableHead>
-                <TableHead>Price</TableHead>
+                <TableHead>Selling Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -243,7 +251,11 @@ export default function Products() {
                     <TableCell>{getStatusBadge("", product.totalStock)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewDetails(product.productId)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="sm">
@@ -340,6 +352,15 @@ export default function Products() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Product Details Dialog */}
+      {selectedProductId && (
+        <ProductDetailsDialog
+          productId={selectedProductId}
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+        />
+      )}
     </div>
   );
 }
