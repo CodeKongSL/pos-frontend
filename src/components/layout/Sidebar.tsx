@@ -19,7 +19,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Manage Products", href: "/products", icon: Package },
   { name: "GRN Notes", href: "/grn", icon: FileText },
-  { name: "Manage Stocks", href: "/stocks", icon: Warehouse },
+  { name: "Sales", href: "/sales", icon: Warehouse },
   { name: "Categories", href: "/categories", icon: FolderOpen },
   { name: "Brands", href: "/brands", icon: Tag },
   { name: "Suppliers", href: "/suppliers", icon: Users },
