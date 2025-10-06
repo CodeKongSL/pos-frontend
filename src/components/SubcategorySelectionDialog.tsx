@@ -45,6 +45,9 @@ export function SubcategorySelectionDialog({
   const [brand, setBrand] = useState<Brand | null>(null);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const getSubcategoryId = (subcategory: Subcategory): string => {
+    return subcategory.subcategoryId || (subcategory as any).subCategoryId || '';
+  };
 
   useEffect(() => {
     const fetchBrandAndSubcategories = async () => {
@@ -122,7 +125,11 @@ export function SubcategorySelectionDialog({
     }
 
     // Find selected subcategory name
-    const subcategory = subcategories.find(sub => sub.subcategoryId === selectedSubcategory);
+    const subcategory = subcategories.find(sub => 
+      getSubcategoryId(sub) === selectedSubcategory
+    );
+
+    selectedSubcategory === getSubcategoryId(subcategory)
     
     onSubcategorySelect({
       subcategoryId: selectedSubcategory,
@@ -272,24 +279,17 @@ export function SubcategorySelectionDialog({
                 </div>
               ) : (
                 subcategories.map((subcategory) => (
-                  <div key={subcategory.subcategoryId}>
+                  <div key={getSubcategoryId(subcategory)}>
                     <Card
                       className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedSubcategory === (subcategory.subcategoryId || (subcategory as any).subCategoryId)
+                        selectedSubcategory === getSubcategoryId(subcategory)
                           ? 'ring-2 ring-primary bg-primary/5'
                           : 'hover:bg-muted/50'
                       }`}
-                      role="button"
-                      tabIndex={0}
                       onClick={() => {
-                        console.log('Clicked subcategory object:', subcategory);
-                        // Handle both possible property names
-                        const id = subcategory.subcategoryId || (subcategory as any).subCategoryId;
-                        console.log('Extracted ID:', id);
+                        const id = getSubcategoryId(subcategory);
                         if (id) {
                           handleSubcategorySelect(id);
-                        } else {
-                          console.error('No subcategoryId found in object:', subcategory);
                         }
                       }}
                     >

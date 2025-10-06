@@ -98,6 +98,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     setIsLoading(true);
     
     try {
+      // Format the product name to include brand and subcategory
+      const selectedBrand = brands.find(b => b.brandId === formData.brand);
+      const brandName = selectedBrand?.name || "";
+      const firstSubcategory = selectedSubcategories[0];
+      // Only use the formData.name if there's no subcategory
+      const formattedName = firstSubcategory ? `${brandName} - ${firstSubcategory.subcategoryName}` : formData.name;
       // Calculate total stock quantity from all subcategories
       const stockQty = selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
 
@@ -109,7 +115,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
 
       // Prepare product data
       const productData = {
-        name: formData.name,
+        name: formattedName,
         categoryId: formData.category,
         brandId: formData.brand,
         description: formData.description,
@@ -210,7 +216,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     }
 
     // Auto-generate product name from brand and subcategory
-    const generatedName = `${brandName} ${subcategoryData.subcategoryName}`.trim();
+    const generatedName = subcategoryData ? `${brandName} - ${subcategoryData.subcategoryName}`.trim() : brandName;
     
     // Use unit price instead of total cost
     const unitPrice = subcategoryData.price.toFixed(2);
