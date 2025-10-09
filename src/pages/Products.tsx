@@ -82,11 +82,21 @@ export default function Products() {
       console.log('Categories response:', categoriesRes);
       console.log('Brands response:', brandsRes);
       
-      // Handle pagination response
+      // Handle pagination response with additional validation
+      if (!productsRes || typeof productsRes !== 'object') {
+        throw new Error('Invalid products response structure');
+      }
+      
       const paginatedResponse = productsRes as PaginatedProductResponse;
       
+      // Validate the response structure
+      if (!paginatedResponse.data || !Array.isArray(paginatedResponse.data)) {
+        console.warn('Products response does not contain valid data array, using empty array');
+        paginatedResponse.data = [];
+      }
+      
       // Set the products state
-      const newProducts = Array.isArray(paginatedResponse.data) ? paginatedResponse.data : [];
+      const newProducts = paginatedResponse.data;
       console.log('Setting products count:', newProducts.length);
       setProducts(newProducts);
       setNextCursor(paginatedResponse.next_cursor);
@@ -107,11 +117,20 @@ export default function Products() {
         console.log('Reset pagination tracking');
       }
       
+      // Validate and set categories/brands
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
       setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
       console.error("Error fetching data:", error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data';
+      setError(errorMessage);
+      
+      // Set empty states to prevent further errors
+      setProducts([]);
+      setCategories([]);
+      setBrands([]);
+      setNextCursor(null);
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
@@ -143,11 +162,21 @@ export default function Products() {
       
       console.log('Products response:', productsRes);
       
-      // Handle pagination response
+      // Handle pagination response with validation
+      if (!productsRes || typeof productsRes !== 'object') {
+        throw new Error('Invalid products response structure');
+      }
+      
       const paginatedResponse = productsRes as PaginatedProductResponse;
       
+      // Validate the response structure
+      if (!paginatedResponse.data || !Array.isArray(paginatedResponse.data)) {
+        console.warn('Products response does not contain valid data array, using empty array');
+        paginatedResponse.data = [];
+      }
+      
       // Set the products state
-      const newProducts = Array.isArray(paginatedResponse.data) ? paginatedResponse.data : [];
+      const newProducts = paginatedResponse.data;
       console.log('Setting products count:', newProducts.length);
       setProducts(newProducts);
       setNextCursor(paginatedResponse.next_cursor);
@@ -163,7 +192,15 @@ export default function Products() {
       setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
       console.error("Error fetching data:", error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data';
+      setError(errorMessage);
+      
+      // Set empty states to prevent further errors
+      setProducts([]);
+      setCategories([]);
+      setBrands([]);
+      setNextCursor(null);
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
