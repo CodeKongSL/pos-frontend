@@ -60,7 +60,7 @@ export default function Products() {
     try {
       const [productsRes, categoriesRes, brandsRes] = await Promise.all([
         ProductService.getAllProducts(),
-        CategoryService.getAllCategories(),
+        CategoryService.getCategoriesOnly(),
         BrandService.getAllBrands()
       ]);
       
