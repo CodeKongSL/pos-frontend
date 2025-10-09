@@ -1,7 +1,7 @@
 import { Product, ProductCreate, ProductCreateRequest, PaginatedProductResponse, ProductPaginationParams } from '../models/product.model';
 
-
-const API_BASE_URL = 'https://my-go-backend.onrender.com';
+// Get API base URL from environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://my-go-backend.onrender.com';
 
 const FIND_ALL_PRODUCTS_URL = `${API_BASE_URL}/FindAllProducts`;
 const FIND_PRODUCT_BY_ID_URL = `${API_BASE_URL}/FindProductByProductId`;
@@ -70,6 +70,8 @@ export const ProductService = {
       
       const url = `${FIND_ALL_PRODUCTS_URL}?${queryParams.toString()}`;
       console.log('Making API request:', url);
+      console.log('Environment API URL:', import.meta.env.VITE_API_URL);
+      console.log('Using API_BASE_URL:', API_BASE_URL);
       
       const response = await fetch(url);
       console.log('Response status:', response.status);
@@ -80,41 +82,98 @@ export const ProductService = {
       
       const data = await response.json();
       console.log('Raw API response:', data);
+      console.log('Type of data:', typeof data);
+      console.log('Type of data.data:', typeof data.data);
+      console.log('Is data.data an array?', Array.isArray(data.data));
       
-      // Transform the API response to match our Product interface
-      // Handle the case where data.data is null (no more products to fetch)
-      const transformedProducts: Product[] = data.data ? data.data.map((item: any) => {
-        return {
-          productId: item.productId || '',
-          name: item.name || '',
-          barcode: item.barcode || '',
-          categoryId: item.categoryId || '',
-          brandId: item.brandId || '',
-          subCategoryId: item.subCategoryId || '',
-          description: item.description || '',
-          costPrice: Number(item.costPrice) || 0,
-          sellingPrice: Number(item.sellingPrice) || 0,
-          stockQty: Number(item.stockQty) || 0,
-          expiry_date: item.expiry_date || '',
-          created_at: item.created_at || '',
-          updated_at: item.updated_at || '',
-          deleted: item.deleted || false,
-          productSubcategories: item.productSubcategories || []
-        };
-      }) : [];
+      // More robust handling of different response structures
+      let transformedProducts: Product[] = [];
+      
+      // Handle different possible response structures
+      if (data && typeof data === 'object') {
+        let productsArray: any[] = [];
+        
+        // Case 1: Response has data.data property (expected structure)
+        if (data.data !== undefined) {
+          if (Array.isArray(data.data)) {
+            productsArray = data.data;
+          } else if (data.data === null) {
+            // Handle null data (no more products)
+            productsArray = [];
+          } else {
+            console.warn('Unexpected data.data structure:', data.data);
+            productsArray = [];
+          }
+        }
+        // Case 2: Response is directly an array (alternative structure)
+        else if (Array.isArray(data)) {
+          productsArray = data;
+        }
+        // Case 3: Response has products property (another possible structure)
+        else if (data.products && Array.isArray(data.products)) {
+          productsArray = data.products;
+        }
+        // Case 4: No valid products found
+        else {
+          console.warn('No valid products array found in response:', data);
+          productsArray = [];
+        }
+        
+        // Transform the products array
+        transformedProducts = productsArray.map((item: any) => {
+          if (!item || typeof item !== 'object') {
+            console.warn('Invalid product item:', item);
+            return null;
+          }
+          
+          return {
+            productId: item.productId || '',
+            name: item.name || '',
+            barcode: item.barcode || '',
+            categoryId: item.categoryId || '',
+            brandId: item.brandId || '',
+            subCategoryId: item.subCategoryId || '',
+            description: item.description || '',
+            costPrice: Number(item.costPrice) || 0,
+            sellingPrice: Number(item.sellingPrice) || 0,
+            stockQty: Number(item.stockQty) || 0,
+            expiry_date: item.expiry_date || '',
+            created_at: item.created_at || '',
+            updated_at: item.updated_at || '',
+            deleted: Boolean(item.deleted),
+            productSubcategories: Array.isArray(item.productSubcategories) ? item.productSubcategories : []
+          };
+        }).filter(Boolean); // Remove any null entries
+      } else {
+        console.error('API response is not an object:', data);
+        transformedProducts = [];
+      }
       
       const paginatedResponse: PaginatedProductResponse = {
         data: transformedProducts,
-        per_page: data.per_page || params?.per_page || 15,
-        next_cursor: data.next_cursor || null,
-        has_more: data.has_more || false
+        per_page: data?.per_page || params?.per_page || 15,
+        next_cursor: data?.next_cursor || null,
+        has_more: Boolean(data?.has_more)
       };
       
       console.log('Transformed paginated response:', paginatedResponse);
+      console.log('Number of products:', transformedProducts.length);
       return paginatedResponse;
     } catch (error) {
       console.error('Error fetching products:', error);
-      throw error;
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      
+      // Return empty response instead of throwing to prevent app crash
+      const fallbackResponse: PaginatedProductResponse = {
+        data: [],
+        per_page: params?.per_page || 15,
+        next_cursor: null,
+        has_more: false
+      };
+      
+      // Still throw the error so the UI can handle it properly
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch products');
     }
   },
 
