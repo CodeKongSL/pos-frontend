@@ -269,55 +269,71 @@ const CategoriesPage = () => {
         </div>
 
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredCategories.map((category) => {
             const productCount = getProductCountByCategory(category.categoryId);
             
             return (
               <div
                 key={category.categoryId}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                className="group bg-gradient-to-br from-white to-blue-50/30 rounded-xl shadow-sm border border-blue-100 hover:shadow-lg hover:border-blue-300 transition-all duration-300 hover:-translate-y-1"
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
-                    <div className="flex gap-2">
+                {/* Header with colored accent */}
+                <div className="bg-gradient-to-r from-blue-400 to-blue-500 h-1.5 rounded-t-xl"></div>
+                
+                <div className="p-4">
+                  {/* Category Icon and Actions */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                        <Folder className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-500 transition-colors">
+                          {category.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{category.categoryId}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
                       <button
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         title="Edit category"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteCategory(category.categoryId)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         title="Delete category"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <p className="text-gray-600 text-sm mb-4">
-                    {category.categoryId}
-                  </p>
+                  {/* Divider */}
+                  <div className="border-t border-blue-100 my-3"></div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      {productCount} {productCount === 1 ? 'Product' : 'Products'}
-                    </span>
+                  {/* Footer with product count and action */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600">
+                        {productCount} {productCount === 1 ? 'item' : 'items'}
+                      </span>
+                    </div>
                     <button
                       onClick={() => handleViewProducts(category.categoryId, category.name)}
-                      className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-all hover:shadow-md active:scale-95 opacity-0 group-hover:opacity-100"
                     >
-                      View Products
+                      View
                     </button>
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
 
         {filteredCategories.length === 0 && (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
@@ -328,6 +344,7 @@ const CategoriesPage = () => {
             </p>
           </div>
         )}
+        </div>
 
         {/* Pagination Controls */}
         {categoryPagination && categoryPagination.total_pages > 1 && (
