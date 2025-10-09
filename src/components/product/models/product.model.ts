@@ -50,3 +50,15 @@ export interface ProductCreateRequest {
   expiry_date?: string;
   productSubcategories: ProductSubcategory[];
 }
+
+export interface PaginatedProductResponse {
+  data: Product[];
+  per_page: number;
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface ProductPaginationParams {
+  per_page?: number;
+  cursor?: string;
+}

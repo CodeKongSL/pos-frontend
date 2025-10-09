@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Package, Loader2, Trash2 } from "lucide-react";
 import { ProductService } from "./product/services/product.service";
-import { Product } from "./product/models/product.model";
+import { Product, PaginatedProductResponse } from "./product/models/product.model";
 import { assignProductToSupplier, findProductsBySupplierID } from "./supplier/services/supplier.service";
 import { Badge } from "@/components/ui/badge";
 
@@ -78,8 +78,8 @@ export default function ProductSelectionDialog({
   const fetchAllProducts = async () => {
     setLoading(true);
     try {
-      const data = await ProductService.getAllProducts();
-      setProducts(data);
+      const response = await ProductService.getAllProducts({ per_page: 1000 }); // Get a large number for dialogs
+      setProducts(response.data);
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);

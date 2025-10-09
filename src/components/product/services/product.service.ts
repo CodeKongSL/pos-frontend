@@ -1,4 +1,4 @@
-import { Product, ProductCreate, ProductCreateRequest } from '../models/product.model';
+import { Product, ProductCreate, ProductCreateRequest, PaginatedProductResponse, ProductPaginationParams } from '../models/product.model';
 
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
@@ -52,10 +52,26 @@ export const ProductService = {
     }
   },
 
-  async getAllProducts(): Promise<Product[]> {
+  async getAllProducts(params?: ProductPaginationParams): Promise<PaginatedProductResponse> {
     try {
-      console.log('Making API request:', FIND_ALL_PRODUCTS_URL);
-      const response = await fetch(FIND_ALL_PRODUCTS_URL);
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      if (params?.per_page) {
+        queryParams.append('per_page', params.per_page.toString());
+      } else {
+        queryParams.append('per_page', '15'); // Default to 15
+      }
+      
+      // Only add cursor if it's provided and not null/empty
+      if (params?.cursor && params.cursor.trim() !== '') {
+        queryParams.append('cursor', params.cursor);
+      }
+      
+      const url = `${FIND_ALL_PRODUCTS_URL}?${queryParams.toString()}`;
+      console.log('Making API request:', url);
+      
+      const response = await fetch(url);
       console.log('Response status:', response.status);
       
       if (!response.ok) {
@@ -66,7 +82,8 @@ export const ProductService = {
       console.log('Raw API response:', data);
       
       // Transform the API response to match our Product interface
-      const products: Product[] = data.map((item: any) => {
+      // Handle the case where data.data is null (no more products to fetch)
+      const transformedProducts: Product[] = data.data ? data.data.map((item: any) => {
         return {
           productId: item.productId || '',
           name: item.name || '',
@@ -84,10 +101,17 @@ export const ProductService = {
           deleted: item.deleted || false,
           productSubcategories: item.productSubcategories || []
         };
-      });
+      }) : [];
       
-      console.log('Transformed products:', products);
-      return products;
+      const paginatedResponse: PaginatedProductResponse = {
+        data: transformedProducts,
+        per_page: data.per_page || params?.per_page || 15,
+        next_cursor: data.next_cursor || null,
+        has_more: data.has_more || false
+      };
+      
+      console.log('Transformed paginated response:', paginatedResponse);
+      return paginatedResponse;
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Edit, Trash2, Eye, RefreshCcw, AlertCircle } from "lucide-react";
-import { Product } from "@/components/product/models/product.model";
+import { Search, Plus, Edit, Trash2, Eye, RefreshCcw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Product, PaginatedProductResponse } from "@/components/product/models/product.model";
 import { ProductService } from "@/components/product/services/product.service";
 import { Category } from "@/components/category/models/category.model";
 import { CategoryService } from "@/components/category/services/category.service";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddProductDialog } from "@/components/AddProductDialog";
 import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import {
@@ -54,12 +55,25 @@ export default function Products() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  // Pagination state
+  const [perPage, setPerPage] = useState<number>(15);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const [cursors, setCursors] = useState<string[]>([]); // Track cursors for pagination navigation
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const fetchData = async (cursor?: string | null, resetPagination = false) => {
     setIsLoading(true);
     setError(null);
+    console.log('fetchData called with cursor:', cursor, 'resetPagination:', resetPagination, 'perPage:', perPage);
     try {
+      // If resetPagination is true, don't use any cursor (start from beginning)
+      const apiCursor = resetPagination ? undefined : (cursor || undefined);
+      console.log('Using API cursor:', apiCursor);
+      
       const [productsRes, categoriesRes, brandsRes] = await Promise.all([
-        ProductService.getAllProducts(),
+        ProductService.getAllProducts({ per_page: perPage, cursor: apiCursor }),
         CategoryService.getCategoriesOnly(),
         BrandService.getAllBrands()
       ]);
@@ -68,7 +82,31 @@ export default function Products() {
       console.log('Categories response:', categoriesRes);
       console.log('Brands response:', brandsRes);
       
-      setProducts(Array.isArray(productsRes) ? productsRes : []);
+      // Handle pagination response
+      const paginatedResponse = productsRes as PaginatedProductResponse;
+      
+      // Set the products state
+      const newProducts = Array.isArray(paginatedResponse.data) ? paginatedResponse.data : [];
+      console.log('Setting products count:', newProducts.length);
+      setProducts(newProducts);
+      setNextCursor(paginatedResponse.next_cursor);
+      setHasMore(paginatedResponse.has_more);
+      console.log('Pagination state - next_cursor:', paginatedResponse.next_cursor, 'has_more:', paginatedResponse.has_more);
+      
+      // Only set current cursor if we're not resetting pagination
+      if (!resetPagination) {
+        setCurrentCursor(cursor);
+      } else {
+        setCurrentCursor(null);
+      }
+      
+      // Reset pagination tracking if needed
+      if (resetPagination) {
+        setCursors([]);
+        setCurrentPage(1);
+        console.log('Reset pagination tracking');
+      }
+      
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
       setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
@@ -80,8 +118,89 @@ export default function Products() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    console.log('useEffect triggered - initial load');
+    fetchData(null, true);
+  }, []); // Only run on mount
+
+  // Handle per page change
+  const handlePerPageChange = async (value: string) => {
+    const newPerPage = parseInt(value);
+    console.log('Changing per page from', perPage, 'to', newPerPage);
+    setPerPage(newPerPage);
+    // Reset to first page when changing per page
+    console.log('Resetting pagination to first page');
+    
+    // Manually call fetchData with the new perPage value
+    setIsLoading(true);
+    setError(null);
+    console.log('fetchData called with cursor:', null, 'resetPagination:', true, 'perPage:', newPerPage);
+    try {
+      const [productsRes, categoriesRes, brandsRes] = await Promise.all([
+        ProductService.getAllProducts({ per_page: newPerPage, cursor: undefined }),
+        CategoryService.getCategoriesOnly(),
+        BrandService.getAllBrands()
+      ]);
+      
+      console.log('Products response:', productsRes);
+      
+      // Handle pagination response
+      const paginatedResponse = productsRes as PaginatedProductResponse;
+      
+      // Set the products state
+      const newProducts = Array.isArray(paginatedResponse.data) ? paginatedResponse.data : [];
+      console.log('Setting products count:', newProducts.length);
+      setProducts(newProducts);
+      setNextCursor(paginatedResponse.next_cursor);
+      setHasMore(paginatedResponse.has_more);
+      console.log('Pagination state - next_cursor:', paginatedResponse.next_cursor, 'has_more:', paginatedResponse.has_more);
+      
+      setCurrentCursor(null);
+      setCursors([]);
+      setCurrentPage(1);
+      console.log('Reset pagination tracking');
+      
+      setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
+      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle next page
+  const handleNextPage = () => {
+    if (hasMore && nextCursor) {
+      console.log('Moving to next page, current cursor:', currentCursor, 'next cursor:', nextCursor);
+      // Store current cursor for back navigation
+      const newCursors = [...cursors];
+      if (currentCursor !== null) {
+        newCursors.push(currentCursor);
+      }
+      setCursors(newCursors);
+      setCurrentPage(currentPage + 1);
+      fetchData(nextCursor);
+    }
+  };
+
+  // Handle previous page
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      const newCursors = [...cursors];
+      const prevCursor = newCursors.pop();
+      console.log('Moving to previous page, current page:', currentPage, 'prev cursor:', prevCursor);
+      setCursors(newCursors);
+      setCurrentPage(currentPage - 1);
+      // If we're going back to page 1, use null cursor
+      fetchData(currentPage === 2 ? null : prevCursor || null);
+    }
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    fetchData(currentCursor);
+  };
 
   const getProductDisplayData = (product: Product): DisplayProduct => {
     // Ensure we have arrays to work with
@@ -127,8 +246,8 @@ export default function Products() {
     try {
       await ProductService.deleteProduct(productToDelete.productId);
       
-      // Refresh the product list
-      await fetchData();
+      // Refresh the current page
+      await fetchData(currentCursor);
       
       // Close dialog and reset state
       setDeleteDialogOpen(false);
@@ -165,7 +284,7 @@ export default function Products() {
       {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -175,6 +294,19 @@ export default function Products() {
                 className="pl-10"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Show:</span>
+              <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -182,7 +314,14 @@ export default function Products() {
       {/* Products Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Products ({filteredProducts.length})</CardTitle>
+          <CardTitle>
+            Products ({filteredProducts.length} on this page)
+            {currentPage > 1 && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                - Page {currentPage}
+              </span>
+            )}
+          </CardTitle>
           {error && (
             <div className="mt-2 p-3 text-sm rounded-md bg-destructive/10 text-destructive flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
@@ -191,7 +330,7 @@ export default function Products() {
                 variant="outline"
                 size="sm"
                 className="ml-auto"
-                onClick={fetchData}
+                onClick={handleRefresh}
               >
                 <RefreshCcw className="h-4 w-4 mr-2" />
                 Retry
@@ -227,12 +366,27 @@ export default function Products() {
                   <TableCell colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center justify-center">
                       <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
-                      <p className="text-lg font-medium text-foreground mb-1">No Products Found</p>
+                      <p className="text-lg font-medium text-foreground mb-1">
+                        {currentPage === 1 ? "No Products Found" : "No More Products"}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {searchTerm 
                           ? "Try adjusting your search criteria"
-                          : "Get started by adding your first product"}
+                          : currentPage === 1 
+                            ? "Get started by adding your first product"
+                            : "You've reached the end of the product list"}
                       </p>
+                      {currentPage > 1 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePrevPage}
+                          className="mt-3"
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Go back to previous page
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -276,6 +430,34 @@ export default function Products() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between px-2 py-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} {hasMore ? `of many` : `(last page)`} - Showing {perPage} items per page
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrevPage}
+                disabled={currentPage === 1 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={!hasMore || isLoading}
+                title={!hasMore ? "No more products to load" : "Load next page"}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

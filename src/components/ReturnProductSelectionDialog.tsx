@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Product, PaginatedProductResponse } from './product/models/product.model';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { Plus, Package, Loader2 } from "lucide-react";
 import { ProductService } from "./product/services/product.service";
-import { Product } from "./product/models/product.model";
 import { Badge } from "@/components/ui/badge";
 
 interface ReturnProductSelectionDialogProps {
@@ -40,8 +40,8 @@ export default function ReturnProductSelectionDialog({
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await ProductService.getAllProducts();
-      setProducts(data);
+      const response = await ProductService.getAllProducts({ per_page: 1000 }); // Get a large number for dialogs
+      setProducts(response.data);
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
