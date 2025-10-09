@@ -1,4 +1,4 @@
-import { Category, CategoryCreate, CategoryCreateRequest } from '../models/category.model';
+import { Category, CategoryCreate, CategoryCreateRequest, CategoryPaginationResponse, CategoryPaginationParams } from '../models/category.model';
 
 // Base URLs for different endpoints
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
@@ -17,17 +17,38 @@ interface RestoreProductParams {
 }
 
 export const CategoryService = {
-  async getAllCategories(): Promise<Category[]> {
+  async getAllCategories(params: CategoryPaginationParams = { page: 1, per_page: 15 }): Promise<CategoryPaginationResponse> {
     try {
-      console.log('Making API request to:', FIND_ALL_CATEGORY_URL);
-      const response = await fetch(FIND_ALL_CATEGORY_URL);
+      const queryParams = new URLSearchParams({
+        page: (params.page || 1).toString(),
+        per_page: (params.per_page || 15).toString()
+      });
+      
+      const url = `${FIND_ALL_CATEGORY_URL}?${queryParams.toString()}`;
+      console.log('Making API request to:', url);
+      
+      const response = await fetch(url);
       console.log('Response status:', response.status);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
+      
       const data = await response.json();
       console.log('Raw API response:', data);
-      return data;
+      
+      return data as CategoryPaginationResponse;
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      throw error;
+    }
+  },
+
+  // Legacy method for backward compatibility - returns only the categories array
+  async getCategoriesOnly(params: CategoryPaginationParams = { page: 1, per_page: 15 }): Promise<Category[]> {
+    try {
+      const response = await this.getAllCategories(params);
+      return response.data;
     } catch (error) {
       console.error('Error fetching categories:', error);
       throw error;

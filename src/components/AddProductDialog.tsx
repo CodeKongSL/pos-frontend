@@ -55,7 +55,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       setIsLoading(true);
       console.log('Fetching categories and brands...');
       const [categoriesRes, brandsRes] = await Promise.all([
-        CategoryService.getAllCategories(),
+        CategoryService.getCategoriesOnly(),
         BrandService.getAllBrands()
       ]);
       console.log('Categories received:', categoriesRes);

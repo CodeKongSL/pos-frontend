@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, Tag, FolderOpen, Edit2, Trash2, Search } from 'lucide-react';
+import { Folder, Tag, FolderOpen, Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import CategoryProductsModal from '../components/CategoryProductsModal';
 import DeletedProductsModal from '../components/DeletedProductsModal';
 
@@ -7,6 +7,7 @@ import DeletedProductsModal from '../components/DeletedProductsModal';
 interface Category {
   categoryId: string;
   name: string;
+  deleted: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -16,9 +17,13 @@ import { Product } from '../types/product';
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 import { CategoryService } from '../components/category/services/category.service';
+import { CategoryPaginationResponse } from '../components/category/models/category.model';
 
 const CategoriesPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryPagination, setCategoryPagination] = useState<CategoryPaginationResponse | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [products, setProducts] = useState<Product[]>([]);
   const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +40,10 @@ const CategoriesPage = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, [currentPage, itemsPerPage]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -45,12 +54,19 @@ const CategoriesPage = () => {
       ]);
       
       console.log('Fetched data:', {
-        categoriesCount: categoriesData.length,
+        categoriesCount: categoriesData.data.length,
         productsCount: productsData.length,
-        deletedProductsCount: deletedProductsData.length
+        deletedProductsCount: deletedProductsData.length,
+        pagination: {
+          page: categoriesData.page,
+          per_page: categoriesData.per_page,
+          total: categoriesData.total,
+          total_pages: categoriesData.total_pages
+        }
       });
       
-      setCategories(categoriesData);
+      setCategoryPagination(categoriesData);
+      setCategories(categoriesData.data);
       setProducts(productsData);
       setDeletedProducts(deletedProductsData);
       setError(null);
@@ -62,11 +78,11 @@ const CategoriesPage = () => {
     }
   };
 
-  const fetchCategories = async (): Promise<Category[]> => {
-    const response = await fetch(`${API_BASE_URL}/FindAllCategory`);
-    if (!response.ok) throw new Error('Failed to fetch categories');
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+  const fetchCategories = async (): Promise<CategoryPaginationResponse> => {
+    return await CategoryService.getAllCategories({ 
+      page: currentPage, 
+      per_page: itemsPerPage 
+    });
   };
 
   const fetchProducts = async (): Promise<Product[]> => {
@@ -149,6 +165,15 @@ const CategoriesPage = () => {
     }
   };
 
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -191,8 +216,9 @@ const CategoriesPage = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">{categories.length}</p>
+                <p className="text-3xl font-bold text-gray-900">{categoryPagination?.total || 0}</p>
                 <p className="text-gray-600 mt-1">Total Categories</p>
+                <p className="text-sm text-gray-500">Showing {categories.length} of {categoryPagination?.total || 0}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Folder className="w-6 h-6 text-blue-600" />
@@ -300,6 +326,86 @@ const CategoriesPage = () => {
             <p className="text-gray-600">
               {searchTerm ? 'Try adjusting your search terms' : 'Get started by creating your first category'}
             </p>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {categoryPagination && categoryPagination.total_pages > 1 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mt-6 border border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              {/* Items per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Items per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              {/* Pagination info */}
+              <div className="text-sm text-gray-600">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, categoryPagination.total)} of {categoryPagination.total} categories
+              </div>
+
+              {/* Pagination buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+
+                {/* Page numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: categoryPagination.total_pages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      return page === 1 || 
+                             page === categoryPagination.total_pages || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, index, visiblePages) => {
+                      // Add ellipsis if there's a gap
+                      const showEllipsisBefore = index > 0 && page > visiblePages[index - 1] + 1;
+                      
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsisBefore && (
+                            <span className="px-3 py-2 text-sm text-gray-500">...</span>
+                          )}
+                          <button
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                              page === currentPage
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-600 bg-white border border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === categoryPagination.total_pages}
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
