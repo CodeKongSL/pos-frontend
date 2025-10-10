@@ -1,4 +1,4 @@
-import { Category, CategoryCreate, CategoryCreateRequest, CategoryPaginationResponse, CategoryPaginationParams } from '../models/category.model';
+import { Category, CategoryCreate, CategoryCreateRequest, CategoryPaginationResponse, CategoryPaginationParams, ProductsByCategoryResponse } from '../models/category.model';
 
 // Base URLs for different endpoints
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
@@ -8,6 +8,7 @@ const CREATE_CATEGORY_URL = `${API_BASE_URL}/CreateCategory`;
 const DELETE_CATEGORY_URL = `${API_BASE_URL}/DeleteCategory`;
 const FIND_ALL_DELETED_PRODUCTS_URL = `${API_BASE_URL}/FindAllDeletedProducts`;
 const RESTORE_PRODUCT_URL = `${API_BASE_URL}/RestoreProduct`;
+const FIND_PRODUCTS_BY_CATEGORY_ID_URL = `${API_BASE_URL}/FindProductsByCategoryId`;
 
 interface RestoreProductParams {
   productId: string;
@@ -160,6 +161,66 @@ export const CategoryService = {
     } catch (error) {
       console.error('Error restoring product:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to restore product');
+    }
+  },
+
+  async getProductsByCategoryId(categoryId: string, perPage: number = 15): Promise<any[]> {
+    try {
+      const response = await this.getProductsByCategoryIdWithPagination(categoryId, perPage);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching products by category:', error);
+      throw error;
+    }
+  },
+
+  async getProductsByCategoryIdWithPagination(categoryId: string, perPage: number = 15): Promise<ProductsByCategoryResponse> {
+    try {
+      console.log('Fetching products for category ID:', categoryId);
+      
+      if (!categoryId) {
+        throw new Error('Category ID is required');
+      }
+      
+      const url = `${FIND_PRODUCTS_BY_CATEGORY_ID_URL}?categoryId=${encodeURIComponent(categoryId)}&per_page=${perPage}`;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch products for category');
+      }
+
+      const data = await response.json();
+      console.log('Products response:', data);
+      
+      // Handle the new paginated response format
+      if (data && data.data && Array.isArray(data.data)) {
+        return {
+          data: data.data,
+          per_page: data.per_page || perPage,
+          next_cursor: data.next_cursor || null,
+          has_more: data.has_more || false
+        };
+      }
+      
+      // Fallback for old format
+      return {
+        data: Array.isArray(data) ? data : [],
+        per_page: perPage,
+        next_cursor: null,
+        has_more: false
+      };
+    } catch (error) {
+      console.error('Error fetching products by category:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch products');
     }
   }
 };

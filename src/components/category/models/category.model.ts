@@ -26,3 +26,10 @@ export interface CategoryPaginationParams {
   page?: number;
   per_page?: number;
 }
+
+export interface ProductsByCategoryResponse {
+  data: any[];
+  per_page: number;
+  next_cursor: string | null;
+  has_more: boolean;
+}

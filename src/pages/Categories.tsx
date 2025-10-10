@@ -28,6 +28,7 @@ const CategoriesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categoryProductCounts, setCategoryProductCounts] = useState<Record<string, number>>({});
   const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +75,10 @@ const CategoriesPage = () => {
       setTotalProductsCount(productsData);
       setProducts([]);
       setDeletedProducts(deletedProductsData);
+      
+      // Fetch product counts for each category
+      await fetchCategoryProductCounts(categoriesData.data);
+      
       setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -132,8 +137,31 @@ const CategoriesPage = () => {
     }
   };
 
+  const fetchCategoryProductCounts = async (categories: Category[]) => {
+    try {
+      const counts: Record<string, number> = {};
+      
+      // Fetch product count for each category
+      await Promise.all(
+        categories.map(async (category) => {
+          try {
+            const products = await CategoryService.getProductsByCategoryId(category.categoryId, 1000); // Large number to get all products
+            counts[category.categoryId] = products.length;
+          } catch (error) {
+            console.error(`Error fetching products for category ${category.categoryId}:`, error);
+            counts[category.categoryId] = 0;
+          }
+        })
+      );
+      
+      setCategoryProductCounts(counts);
+    } catch (error) {
+      console.error('Error fetching category product counts:', error);
+    }
+  };
+
   const getProductCountByCategory = (categoryId: string) => {
-      return products.filter(p => p.categoryId === categoryId).length;
+    return categoryProductCounts[categoryId] || 0;
   };
 
   const getCategorizedProductsCount = () => {
@@ -171,13 +199,13 @@ const CategoriesPage = () => {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Check if category has products
-    const productsInCategory = products.filter(p => p.categoryId === categoryId);
+    // Check if category has products using the count from our state
+    const productCount = getProductCountByCategory(categoryId);
     
-    if (productsInCategory.length > 0) {
+    if (productCount > 0) {
       alert(
         `Cannot delete this category!\n\n` +
-        `This category has ${productsInCategory.length} product(s) assigned to it.\n\n` +
+        `This category has ${productCount} product(s) assigned to it.\n\n` +
         `Please reassign or delete these products before deleting the category.`
       );
       return;
