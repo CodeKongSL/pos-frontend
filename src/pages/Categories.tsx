@@ -28,6 +28,8 @@ const CategoriesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categoryProductCounts, setCategoryProductCounts] = useState<Record<string, number>>({});
+  const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
   const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +76,10 @@ const CategoriesPage = () => {
       setTotalProductsCount(productsData);
       setProducts([]);
       setDeletedProducts(deletedProductsData);
+      
+      // Remove bulk product count fetching for performance
+      // Product counts will be loaded on demand when user interacts with specific categories
+      
       setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -132,8 +138,54 @@ const CategoriesPage = () => {
     }
   };
 
+  const fetchCategoryProductCounts = async (categories: Category[]) => {
+    try {
+      const counts: Record<string, number> = {};
+      
+      // This function is now only called on demand for specific categories
+      // No longer called during initial page load for performance reasons
+      await Promise.all(
+        categories.map(async (category) => {
+          try {
+            const products = await CategoryService.getProductsByCategoryId(category.categoryId, 1000); // Large number to get all products
+            counts[category.categoryId] = products.length;
+          } catch (error) {
+            console.error(`Error fetching products for category ${category.categoryId}:`, error);
+            counts[category.categoryId] = 0;
+          }
+        })
+      );
+      
+      setCategoryProductCounts(prev => ({ ...prev, ...counts }));
+    } catch (error) {
+      console.error('Error fetching category product counts:', error);
+    }
+  };
+
+  const fetchSingleCategoryProductCount = async (categoryId: string) => {
+    try {
+      setLoadingCounts(prev => ({ ...prev, [categoryId]: true }));
+      const products = await CategoryService.getProductsByCategoryId(categoryId, 1000);
+      setCategoryProductCounts(prev => ({ ...prev, [categoryId]: products.length }));
+      return products.length;
+    } catch (error) {
+      console.error(`Error fetching products for category ${categoryId}:`, error);
+      setCategoryProductCounts(prev => ({ ...prev, [categoryId]: 0 }));
+      return 0;
+    } finally {
+      setLoadingCounts(prev => ({ ...prev, [categoryId]: false }));
+    }
+  };
+
   const getProductCountByCategory = (categoryId: string) => {
-      return products.filter(p => p.categoryId === categoryId).length;
+    return categoryProductCounts[categoryId];
+  };
+
+  const handleCategoryHover = async (categoryId: string) => {
+    // Only fetch if we don't already have the count
+    if (categoryProductCounts[categoryId] === undefined) {
+      await fetchSingleCategoryProductCount(categoryId);
+    }
   };
 
   const getCategorizedProductsCount = () => {
@@ -171,13 +223,18 @@ const CategoriesPage = () => {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Check if category has products
-    const productsInCategory = products.filter(p => p.categoryId === categoryId);
+    // Check if category has products using the count from our state
+    let productCount = getProductCountByCategory(categoryId);
     
-    if (productsInCategory.length > 0) {
+    // If we don't have the count yet, fetch it before proceeding with deletion
+    if (productCount === undefined) {
+      productCount = await fetchSingleCategoryProductCount(categoryId);
+    }
+    
+    if (productCount > 0) {
       alert(
         `Cannot delete this category!\n\n` +
-        `This category has ${productsInCategory.length} product(s) assigned to it.\n\n` +
+        `This category has ${productCount} product(s) assigned to it.\n\n` +
         `Please reassign or delete these products before deleting the category.`
       );
       return;
@@ -305,11 +362,14 @@ const CategoriesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredCategories.map((category) => {
             const productCount = getProductCountByCategory(category.categoryId);
+            const isLoadingCount = loadingCounts[category.categoryId];
+            const hasCount = productCount !== undefined;
             
             return (
               <div
                 key={category.categoryId}
                 className="group bg-gradient-to-br from-white to-blue-50/30 rounded-xl shadow-sm border border-blue-100 hover:shadow-lg hover:border-blue-300 transition-all duration-300 hover:-translate-y-1"
+                onMouseEnter={() => handleCategoryHover(category.categoryId)}
               >
                 {/* Header with colored accent */}
                 <div className="bg-gradient-to-r from-blue-400 to-blue-500 h-1.5 rounded-t-xl"></div>
@@ -353,7 +413,16 @@ const CategoriesPage = () => {
                     <div className="flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-gray-400" />
                       <span className="text-xs font-medium text-gray-600">
-                        {productCount} {productCount === 1 ? 'item' : 'items'}
+                        {isLoadingCount ? (
+                          <span className="inline-flex items-center gap-1">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
+                            Loading...
+                          </span>
+                        ) : hasCount ? (
+                          `${productCount} ${productCount === 1 ? 'item' : 'items'}`
+                        ) : (
+                          'Hover to load count'
+                        )}
                       </span>
                     </div>
                     <button

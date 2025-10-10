@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Search, AlertCircle } from 'lucide-react';
+import { X, Search, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CategoryService } from './category/services/category.service';
 
 interface Product {
   productId: string;
@@ -23,8 +24,6 @@ interface CategoryProductsModalProps {
   categoryName: string;
 }
 
-const API_BASE_URL = 'https://my-go-backend.onrender.com';
-
 const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
   isOpen,
   onClose,
@@ -35,28 +34,46 @@ const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && categoryId) {
+      setCurrentPage(1);
+      setProducts([]);
+      setTotalProducts(0);
+      setHasMore(false);
+      setNextCursor(null);
       fetchProductsByCategory();
     }
   }, [isOpen, categoryId]);
+
+  useEffect(() => {
+    if (isOpen && categoryId && currentPage > 1) {
+      fetchProductsByCategory();
+    }
+  }, [currentPage, itemsPerPage]);
 
   const fetchProductsByCategory = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(
-        `${API_BASE_URL}/FindProductsByCategoryId?categoryId=${encodeURIComponent(categoryId)}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+      const response = await CategoryService.getProductsByCategoryIdWithPagination(categoryId, itemsPerPage);
+      
+      if (currentPage === 1) {
+        setProducts(response.data);
+      } else {
+        setProducts(prev => [...prev, ...response.data]);
       }
-
-      const data = await response.json();
-      setProducts(Array.isArray(data) ? data : []);
+      
+      setTotalProducts(response.data.length);
+      setHasMore(response.has_more);
+      setNextCursor(response.next_cursor);
     } catch (err) {
       console.error('Error fetching products:', err);
       setError('Failed to load products. Please try again.');
@@ -71,17 +88,58 @@ const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
     product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handleItemsPerPageChange = async (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+    setProducts([]);
+    setTotalProducts(0);
+    setHasMore(false);
+    setNextCursor(null);
+    
+    // Fetch products with new items per page
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await CategoryService.getProductsByCategoryIdWithPagination(categoryId, newItemsPerPage);
+      
+      setProducts(response.data);
+      setTotalProducts(response.data.length);
+      setHasMore(response.has_more);
+      setNextCursor(response.next_cursor);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to load products. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStockStatus = (qty: number) => {
+    if (qty > 10) return { color: 'text-green-600 bg-green-50', label: 'In Stock' };
+    if (qty > 0) return { color: 'text-yellow-600 bg-yellow-50', label: 'Low Stock' };
+    return { color: 'text-red-600 bg-red-50', label: 'Out of Stock' };
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{categoryName}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {products.length} {products.length === 1 ? 'product' : 'products'} in this category
+              {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+              {searchTerm && ` matching "${searchTerm}"`}
+              {hasMore && !searchTerm && <span className="text-blue-600 ml-1">(more available)</span>}
             </p>
           </div>
           <button
@@ -92,29 +150,45 @@ const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
+        {/* Search and Controls */}
+        <div className="p-6 border-b border-gray-200 bg-gray-50">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by name, ID, or barcode..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-gray-300">
+              <span className="text-sm text-gray-600 font-medium">Show:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="border-0 text-sm font-medium text-gray-900 focus:ring-0 outline-none bg-transparent cursor-pointer"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="text-sm text-gray-600">per page</span>
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
+        {/* Table Content */}
+        <div className="flex-1 overflow-auto">
+          {loading && currentPage === 1 ? (
+            <div className="flex flex-col items-center justify-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               <p className="mt-4 text-gray-600">Loading products...</p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-16">
               <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
               <p className="text-red-600 font-medium">{error}</p>
               <button
@@ -125,8 +199,10 @@ const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
               </button>
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Package className="w-16 h-16 text-gray-400 mb-4" />
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-gray-400" />
+              </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {searchTerm ? 'No products found' : 'No products in this category'}
               </h3>
@@ -135,69 +211,117 @@ const CategoryProductsModal: React.FC<CategoryProductsModalProps> = ({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.productId}
-                  className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
-                      <p className="text-sm text-gray-600">{product.productId}</p>
-                      {product.barcode && (
-                        <p className="text-xs text-gray-500 mt-1">Barcode: {product.barcode}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {product.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500">Cost Price</p>
-                      <p className="font-semibold text-gray-900">
-                        Rs. {product.costPrice.toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Selling Price</p>
-                      <p className="font-semibold text-gray-900">
-                        Rs. {product.sellingPrice.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Stock Quantity</span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        product.stockQty > 10
-                          ? 'bg-green-100 text-green-800'
-                          : product.stockQty > 0
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {product.stockQty} units
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Product Details
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Product ID
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Cost Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Selling Price
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Stock
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredProducts.map((product, index) => {
+                    const stockStatus = getStockStatus(product.stockQty);
+                    return (
+                      <tr 
+                        key={product.productId} 
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-gray-900">
+                              {product.name}
+                            </span>
+                            {product.barcode && (
+                              <span className="text-xs text-gray-500 mt-1">
+                                Barcode: {product.barcode}
+                              </span>
+                            )}
+                            {product.description && (
+                              <span className="text-xs text-gray-600 mt-1 line-clamp-1">
+                                {product.description}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-900 font-mono">
+                            {product.productId}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-medium text-gray-900">
+                            Rs. {product.costPrice.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-gray-900">
+                            Rs. {product.sellingPrice.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center">
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${stockStatus.color}`}>
+                              {product.stockQty} units
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Close
-          </button>
+        {/* Footer with Pagination */}
+        <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-medium text-gray-900">{filteredProducts.length}</span> products
+            </div>
+            
+            {hasMore && !searchTerm && (
+              <button
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Load More Products</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            )}
+            
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
