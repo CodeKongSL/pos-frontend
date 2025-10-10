@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Tag, FolderOpen, Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import CategoryProductsModal from '../components/CategoryProductsModal';
 import DeletedProductsModal from '../components/DeletedProductsModal';
 
@@ -18,13 +19,16 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 import { CategoryService } from '../components/category/services/category.service';
 import { CategoryPaginationResponse } from '../components/category/models/category.model';
+import { ProductService } from '@/components/product/services/product.service';
 
 const CategoriesPage = () => {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryPagination, setCategoryPagination] = useState<CategoryPaginationResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,13 +53,13 @@ const CategoriesPage = () => {
       setLoading(true);
       const [categoriesData, productsData, deletedProductsData] = await Promise.all([
         fetchCategories(),
-        fetchProducts(),
+        fetchAllProductsCount(),
         fetchDeletedProducts()
       ]);
       
       console.log('Fetched data:', {
         categoriesCount: categoriesData.data.length,
-        productsCount: productsData.length,
+        productsCount: productsData,
         deletedProductsCount: deletedProductsData.length,
         pagination: {
           page: categoriesData.page,
@@ -67,7 +71,8 @@ const CategoriesPage = () => {
       
       setCategoryPagination(categoriesData);
       setCategories(categoriesData.data);
-      setProducts(productsData);
+      setTotalProductsCount(productsData);
+      setProducts([]);
       setDeletedProducts(deletedProductsData);
       setError(null);
     } catch (error) {
@@ -75,6 +80,31 @@ const CategoriesPage = () => {
       setError('Failed to load data. Please try again later.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllProductsCount = async (): Promise<number> => {
+    try {
+      let totalCount = 0;
+      let hasMore = true;
+      let cursor: string | null = null;
+
+      // Fetch all products using pagination to count them
+      while (hasMore) {
+        const response = await ProductService.getAllProducts({
+          per_page: 100,
+          cursor: cursor || undefined
+        });
+        
+        totalCount += response.data.filter(p => !p.deleted && p.categoryId && p.categoryId.trim() !== '').length;
+        hasMore = response.has_more;
+        cursor = response.next_cursor;
+      }
+      
+      return totalCount;
+    } catch (error) {
+      console.error('Error fetching products count:', error);
+      return 0;
     }
   };
 
@@ -103,15 +133,11 @@ const CategoriesPage = () => {
   };
 
   const getProductCountByCategory = (categoryId: string) => {
-    return products.filter(p => p.categoryId === categoryId).length;
+      return products.filter(p => p.categoryId === categoryId).length;
   };
 
   const getCategorizedProductsCount = () => {
-    return products.filter(p => 
-      p.categoryId && 
-      p.categoryId.trim() !== '' && 
-      categories.some(c => c.categoryId === p.categoryId)
-    ).length;
+    return totalProductsCount;
   };
 
   const getDeletedProductsCount = () => {
@@ -129,6 +155,10 @@ const CategoriesPage = () => {
 
   const handleViewDeletedProducts = () => {
     setIsDeletedModalOpen(true);
+  };
+
+  const handleNavigateToProducts = () => {
+    navigate('/products');
   };
 
   const handleCloseModal = () => {
@@ -226,7 +256,10 @@ const CategoriesPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div 
+            className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={handleNavigateToProducts}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-bold text-gray-900">{getCategorizedProductsCount()}</p>
