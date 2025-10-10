@@ -12,7 +12,6 @@ import BrandProductsModal from "../components/BrandProductsModal";
 interface DisplayBrand {
   id: string;
   name: string;
-  productCount: number;
   revenue: string;
   status: string;
 }
@@ -23,7 +22,6 @@ export default function Brands() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<{ id: string; name: string } | null>(null);
-  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     fetchBrands();
@@ -35,36 +33,15 @@ export default function Brands() {
       setError(null);
       const data = await BrandService.getAllBrands();
       
-      // Fetch product counts for each brand
-      const displayBrandsPromises = data
+      // Convert brands to display format without fetching product counts
+      const displayBrands = data
         .filter(brand => !brand.deleted)
-        .map(async (brand) => {
-          try {
-            const products = await BrandService.getProductsByBrandId(brand.brandId);
-            return {
-              id: brand.brandId,
-              name: brand.name,
-              productCount: products.length,
-              revenue: "Rs. 0.00", // Keep as placeholder
-              status: "Active"
-            };
-          } catch (err) {
-            console.error(`Error fetching products for brand ${brand.brandId}:`, err);
-            return {
-              id: brand.brandId,
-              name: brand.name,
-              productCount: 0,
-              revenue: "Rs. 0.00",
-              status: "Active"
-            };
-          }
-        });
-
-      const displayBrands = await Promise.all(displayBrandsPromises);
-      
-      // Calculate total products across all brands
-      const total = displayBrands.reduce((sum, brand) => sum + brand.productCount, 0);
-      setTotalProducts(total);
+        .map((brand) => ({
+          id: brand.brandId,
+          name: brand.name,
+          revenue: "Rs. 0.00", // Keep as placeholder
+          status: "Active"
+        }));
       
       setBrands(displayBrands);
     } catch (err) {
@@ -76,18 +53,6 @@ export default function Brands() {
   };
 
   const handleDeleteBrand = async (brandId: string, brandName: string) => {
-    // Find the brand to check product count
-    const brand = brands.find(b => b.id === brandId);
-    
-    if (brand && brand.productCount > 0) {
-      alert(
-        `Cannot delete this brand!\n\n` +
-        `This brand has ${brand.productCount} product(s) assigned to it.\n\n` +
-        `Please reassign or delete these products before deleting the brand.`
-      );
-      return;
-    }
-
     if (!confirm(`Are you sure you want to delete "${brandName}"?`)) {
       return;
     }
@@ -161,8 +126,9 @@ export default function Brands() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-accent">{totalProducts}</p>
+                <p className="text-2xl font-bold text-accent">-</p>
                 <p className="text-sm text-muted-foreground">Branded Products</p>
+                <p className="text-xs text-muted-foreground/80">Click "View Products" to see counts</p>
               </div>
               <Package className="h-8 w-8 text-accent" />
             </div>
@@ -234,7 +200,7 @@ export default function Brands() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Products</p>
-                    <p className="font-semibold">{brand.productCount}</p>
+                    <p className="font-semibold">-</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Revenue</p>

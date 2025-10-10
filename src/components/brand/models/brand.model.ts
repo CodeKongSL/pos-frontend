@@ -31,3 +31,10 @@ export interface Product {
   created_at: string;
   updated_at: string;
 }
+
+export interface ProductsByBrandResponse {
+  data: Product[];
+  per_page: number;
+  next_cursor: string | null;
+  has_more: boolean;
+}

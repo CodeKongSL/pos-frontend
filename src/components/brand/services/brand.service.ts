@@ -1,4 +1,4 @@
-import { Brand, BrandCreate, BrandCreateRequest, Product } from '../models/brand.model';
+import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse } from '../models/brand.model';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -103,15 +103,25 @@ export const BrandService = {
     }
   },
 
-  async getProductsByBrandId(brandId: string): Promise<Product[]> {
+  async getProductsByBrandId(brandId: string, perPage: number = 15): Promise<Product[]> {
     try {
-      console.log('Fetching products for brand ID:', brandId);
+      const response = await this.getProductsByBrandIdWithPagination(brandId, perPage);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching products by brand:', error);
+      throw error;
+    }
+  },
+
+  async getProductsByBrandIdWithPagination(brandId: string, perPage: number = 15): Promise<ProductsByBrandResponse> {
+    try {
+      console.log('Fetching products for brand ID:', brandId, 'with per_page:', perPage);
       
       if (!brandId) {
         throw new Error('Brand ID is required');
       }
       
-      const url = `${FIND_PRODUCTS_BY_BRAND_URL}?brandId=${brandId}`;
+      const url = `${FIND_PRODUCTS_BY_BRAND_URL}?brandId=${brandId}&per_page=${perPage}`;
       console.log('Request URL:', url);
       
       const response = await fetch(url, {
@@ -130,8 +140,29 @@ export const BrandService = {
       const data = await response.json();
       console.log('Products response:', data);
       
-      // Filter out deleted products
-      return (data || []).filter((product: Product) => !product.deleted);
+      // Handle the new paginated response format
+      if (data && typeof data === 'object') {
+        const products = data.data || [];
+        const filteredProducts = Array.isArray(products) ? products.filter((product: Product) => !product.deleted) : [];
+        
+        return {
+          data: filteredProducts,
+          per_page: data.per_page || perPage,
+          next_cursor: data.next_cursor || null,
+          has_more: data.has_more || false
+        };
+      }
+      
+      // Fallback for old format (if data is directly an array)
+      const products = Array.isArray(data) ? data : [];
+      const filteredProducts = products.filter((product: Product) => !product.deleted);
+      
+      return {
+        data: filteredProducts,
+        per_page: perPage,
+        next_cursor: null,
+        has_more: false
+      };
     } catch (error) {
       console.error('Error fetching products by brand:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch products');
