@@ -25,10 +25,112 @@ export default function Brands() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<{ id: string; name: string } | null>(null);
+  const [totalBrandedProducts, setTotalBrandedProducts] = useState<number>(0);
+  const [loadingBrandedProducts, setLoadingBrandedProducts] = useState(false);
+  const [brandProductCounts, setBrandProductCounts] = useState<Record<string, number>>({});
+  const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchBrands();
+    fetchTotalBrandedProducts();
   }, [currentPage, itemsPerPage]);
+
+  const fetchTotalBrandedProducts = async () => {
+    try {
+      setLoadingBrandedProducts(true);
+      const count = await BrandService.getTotalBrandedProductsCount();
+      setTotalBrandedProducts(count);
+    } catch (err) {
+      console.error('Error fetching branded products count:', err);
+      // Don't show error to user for this, just keep count as 0
+    } finally {
+      setLoadingBrandedProducts(false);
+    }
+  };
+
+  const fetchSingleBrandProductCount = async (brandId: string) => {
+    try {
+      setLoadingCounts(prev => ({ ...prev, [brandId]: true }));
+      
+      // Fetch all products for this brand using pagination to get accurate count
+      let totalCount = 0;
+      let hasMore = true;
+      let cursor: string | null = null;
+
+      while (hasMore) {
+        // Make direct API call with proper cursor handling
+        const API_BASE_URL = 'https://my-go-backend.onrender.com';
+        const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
+        
+        const queryParams = new URLSearchParams();
+        queryParams.append('brandId', brandId);
+        queryParams.append('per_page', '50'); // Use 50 per page for efficiency
+        
+        if (cursor && cursor.trim() !== '') {
+          queryParams.append('cursor', cursor);
+        }
+        
+        const url = `${FIND_PRODUCTS_BY_BRAND_URL}?${queryParams.toString()}`;
+        console.log('Fetching products for count:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch products for counting');
+        }
+        
+        const data = await response.json();
+        
+        // Handle response data safely
+        let products: any[] = [];
+        if (data && typeof data === 'object' && Array.isArray(data.data)) {
+          products = data.data;
+        } else if (Array.isArray(data)) {
+          products = data;
+        }
+        
+        // Count non-deleted products in this page
+        const activeProducts = products.filter(product => product && !product.deleted);
+        totalCount += activeProducts.length;
+        
+        hasMore = data.has_more || false;
+        cursor = data.next_cursor || null;
+        
+        console.log(`Brand ${brandId} - Page processed: Found ${activeProducts.length} products. Total so far: ${totalCount}`);
+        
+        // Safety limit to prevent infinite loops
+        if (totalCount > 10000) {
+          console.warn(`Brand ${brandId} has more than 10,000 products, stopping count at ${totalCount}`);
+          break;
+        }
+      }
+      
+      setBrandProductCounts(prev => ({ ...prev, [brandId]: totalCount }));
+      return totalCount;
+    } catch (error) {
+      console.error(`Error fetching products for brand ${brandId}:`, error);
+      setBrandProductCounts(prev => ({ ...prev, [brandId]: 0 }));
+      return 0;
+    } finally {
+      setLoadingCounts(prev => ({ ...prev, [brandId]: false }));
+    }
+  };
+
+  const getProductCountByBrand = (brandId: string) => {
+    return brandProductCounts[brandId];
+  };
+
+  const handleBrandHover = async (brandId: string) => {
+    // Only fetch if we don't already have the count
+    if (brandProductCounts[brandId] === undefined) {
+      await fetchSingleBrandProductCount(brandId);
+    }
+  };
 
   const fetchBrands = async () => {
     try {
@@ -62,6 +164,9 @@ export default function Brands() {
         }));
       
       setBrands(displayBrands);
+      
+      // Remove bulk product count fetching for performance
+      // Product counts will be loaded on demand when user hovers over specific brands
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       console.error('Error fetching brands:', err);
@@ -71,6 +176,23 @@ export default function Brands() {
   };
 
   const handleDeleteBrand = async (brandId: string, brandName: string) => {
+    // Check if brand has products using the count from our state
+    let productCount = getProductCountByBrand(brandId);
+    
+    // If we don't have the count yet, fetch it before proceeding with deletion
+    if (productCount === undefined) {
+      productCount = await fetchSingleBrandProductCount(brandId);
+    }
+    
+    if (productCount > 0) {
+      alert(
+        `Cannot delete this brand!\n\n` +
+        `This brand has ${productCount} product(s) assigned to it.\n\n` +
+        `Please reassign or delete these products before deleting the brand.`
+      );
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete "${brandName}"?`)) {
       return;
     }
@@ -160,9 +282,18 @@ export default function Brands() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-accent">-</p>
+                <p className="text-2xl font-bold text-accent">
+                  {loadingBrandedProducts ? (
+                    <span className="inline-flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
+                      Loading...
+                    </span>
+                  ) : (
+                    totalBrandedProducts.toLocaleString()
+                  )}
+                </p>
                 <p className="text-sm text-muted-foreground">Branded Products</p>
-                <p className="text-xs text-muted-foreground/80">Click "View Products" to see counts</p>
+                <p className="text-xs text-muted-foreground/80">Products with assigned brands</p>
               </div>
               <Package className="h-8 w-8 text-accent" />
             </div>
@@ -207,58 +338,79 @@ export default function Brands() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredBrands.map((brand) => (
-            <Card key={brand.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold">{brand.name}</CardTitle>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
+          {filteredBrands.map((brand) => {
+            const productCount = getProductCountByBrand(brand.id);
+            const isLoadingCount = loadingCounts[brand.id];
+            const hasCount = productCount !== undefined;
+            
+            return (
+              <Card 
+                key={brand.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onMouseEnter={() => handleBrandHover(brand.id)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold">{brand.name}</CardTitle>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteBrand(brand.id, brand.name);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Products</p>
+                      <p className="font-semibold">
+                        {isLoadingCount ? (
+                          <span className="inline-flex items-center gap-1">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-muted-foreground"></div>
+                            Loading...
+                          </span>
+                        ) : hasCount ? (
+                          productCount
+                        ) : (
+                          'Hover to load count'
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Revenue</p>
+                      <p className="font-semibold text-accent">{brand.revenue}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-success text-success-foreground">
+                      {brand.status}
+                    </Badge>
                     <Button 
                       variant="outline" 
-                      size="sm" 
-                      className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteBrand(brand.id, brand.name);
+                        handleViewProducts(brand.id, brand.name);
                       }}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      View Products
                     </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Products</p>
-                    <p className="font-semibold">-</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Revenue</p>
-                    <p className="font-semibold text-accent">{brand.revenue}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Badge className="bg-success text-success-foreground">
-                    {brand.status}
-                  </Badge>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewProducts(brand.id, brand.name);
-                    }}
-                  >
-                    View Products
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

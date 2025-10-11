@@ -191,15 +191,29 @@ export const BrandService = {
     }
   },
 
-  async getProductsByBrandIdWithPagination(brandId: string, perPage: number = 15): Promise<ProductsByBrandResponse> {
+  async getProductsByBrandIdWithPagination(brandId: string, perPage: number = 15, cursor?: string): Promise<ProductsByBrandResponse> {
     try {
-      console.log('Fetching products for brand ID:', brandId, 'with per_page:', perPage);
+      console.log('Fetching products for brand ID:', brandId, 'with per_page:', perPage, 'cursor:', cursor);
       
       if (!brandId) {
         throw new Error('Brand ID is required');
       }
       
-      const url = `${FIND_PRODUCTS_BY_BRAND_URL}?brandId=${brandId}&per_page=${perPage}`;
+      // Validate per_page parameter against backend limits
+      const validatedPerPage = [15, 25, 50].includes(perPage) ? perPage : 15;
+      if (validatedPerPage !== perPage) {
+        console.warn(`Invalid per_page value ${perPage}, using ${validatedPerPage} instead`);
+      }
+      
+      const queryParams = new URLSearchParams();
+      queryParams.append('brandId', brandId);
+      queryParams.append('per_page', validatedPerPage.toString());
+      
+      if (cursor && cursor.trim() !== '') {
+        queryParams.append('cursor', cursor);
+      }
+      
+      const url = `${FIND_PRODUCTS_BY_BRAND_URL}?${queryParams.toString()}`;
       console.log('Request URL:', url);
       
       const response = await fetch(url, {
@@ -225,7 +239,7 @@ export const BrandService = {
         
         return {
           data: filteredProducts,
-          per_page: data.per_page || perPage,
+          per_page: data.per_page || validatedPerPage,
           next_cursor: data.next_cursor || null,
           has_more: data.has_more || false
         };
@@ -237,13 +251,79 @@ export const BrandService = {
       
       return {
         data: filteredProducts,
-        per_page: perPage,
+        per_page: validatedPerPage,
         next_cursor: null,
         has_more: false
       };
     } catch (error) {
       console.error('Error fetching products by brand:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch products');
+    }
+  },
+
+  // Method to get total count of all branded products (products with valid brandId)
+  // NOTE: This method is for the overall statistics only. Individual brand product counts
+  // should be fetched on-demand using getProductsByBrandId() for better performance
+  async getTotalBrandedProductsCount(): Promise<number> {
+    try {
+      console.log('Fetching total branded products count...');
+      
+      let totalBrandedProducts = 0;
+      let hasMore = true;
+      let cursor: string | null = null;
+
+      // Fetch all products using pagination and count those with brandId
+      while (hasMore) {
+        // Make direct API call to avoid circular dependency with ProductService
+        const API_BASE_URL = 'https://my-go-backend.onrender.com';
+        const FIND_ALL_PRODUCTS_URL = `${API_BASE_URL}/FindAllProducts`;
+        
+        const queryParams = new URLSearchParams();
+        queryParams.append('per_page', '100'); // Use larger page size for efficiency
+        
+        if (cursor && cursor.trim() !== '') {
+          queryParams.append('cursor', cursor);
+        }
+        
+        const url = `${FIND_ALL_PRODUCTS_URL}?${queryParams.toString()}`;
+        console.log('Fetching products for count:', url);
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch products for counting');
+        }
+        
+        const data = await response.json();
+        
+        // Handle response data safely
+        let products: any[] = [];
+        if (data && typeof data === 'object' && Array.isArray(data.data)) {
+          products = data.data;
+        } else if (Array.isArray(data)) {
+          products = data;
+        }
+        
+        // Count products that have a brandId and are not deleted
+        const brandedProductsInPage = products.filter(product => 
+          product &&
+          !product.deleted && 
+          product.brandId && 
+          product.brandId.trim() !== ''
+        ).length;
+        
+        totalBrandedProducts += brandedProductsInPage;
+        hasMore = data.has_more || false;
+        cursor = data.next_cursor || null;
+        
+        console.log(`Page processed: Found ${brandedProductsInPage} branded products. Total so far: ${totalBrandedProducts}`);
+      }
+      
+      console.log(`Total branded products count: ${totalBrandedProducts}`);
+      return totalBrandedProducts;
+    } catch (error) {
+      console.error('Error fetching total branded products count:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch branded products count');
     }
   }
 };
