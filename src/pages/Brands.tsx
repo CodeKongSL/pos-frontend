@@ -3,16 +3,8 @@ import { Search, Edit, Trash2, Award, Package, ChevronLeft, ChevronRight } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandService } from "../components/brand/services/brand.service";
-import { Brand, BrandPaginationResponse } from "../components/brand/models/brand.model";
+import { Brand, BrandPaginationResponse, BrandCostSummary, DisplayBrand, TotalCostSummary } from "../components/brand/models/brand.model";
 import BrandProductsModal from "../components/BrandProductsModal";
-
-// Display brand interface for the UI
-interface DisplayBrand {
-  id: string;
-  name: string;
-  revenue: string;
-  status: string;
-}
 
 export default function Brands() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,11 +19,28 @@ export default function Brands() {
   const [loadingBrandedProducts, setLoadingBrandedProducts] = useState(false);
   const [brandProductCounts, setBrandProductCounts] = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
+  const [brandCostSummaries, setBrandCostSummaries] = useState<Record<string, BrandCostSummary>>({});
+  const [loadingCostSummaries, setLoadingCostSummaries] = useState<Record<string, boolean>>({});
+  const [totalCostSummary, setTotalCostSummary] = useState<TotalCostSummary | null>(null);
+  const [loadingTotalCostSummary, setLoadingTotalCostSummary] = useState(false);
 
   useEffect(() => {
     fetchBrands();
     fetchTotalBrandedProducts();
+    fetchTotalCostSummary();
   }, [currentPage, itemsPerPage]);
+
+  const fetchTotalCostSummary = async () => {
+    try {
+      setLoadingTotalCostSummary(true);
+      const summary = await BrandService.getTotalCostSummary();
+      setTotalCostSummary(summary);
+    } catch (err) {
+      console.error('Error fetching total cost summary:', err);
+    } finally {
+      setLoadingTotalCostSummary(false);
+    }
+  };
 
   const fetchTotalBrandedProducts = async () => {
     try {
@@ -117,9 +126,38 @@ export default function Brands() {
     return brandProductCounts[brandId];
   };
 
+  const fetchSingleBrandCostSummary = async (brandId: string) => {
+    try {
+      setLoadingCostSummaries(prev => ({ ...prev, [brandId]: true }));
+      const costSummary = await BrandService.getBrandCostSummary(brandId);
+      setBrandCostSummaries(prev => ({ ...prev, [brandId]: costSummary }));
+      return costSummary;
+    } catch (error) {
+      console.error(`Error fetching cost summary for brand ${brandId}:`, error);
+      // Set default values if fetch fails
+      const defaultSummary: BrandCostSummary = {
+        brand_id: brandId,
+        sales_target: 0,
+        target_profit: 0,
+        total_spend: 0
+      };
+      setBrandCostSummaries(prev => ({ ...prev, [brandId]: defaultSummary }));
+      return defaultSummary;
+    } finally {
+      setLoadingCostSummaries(prev => ({ ...prev, [brandId]: false }));
+    }
+  };
+
+  const getBrandCostSummary = (brandId: string) => {
+    return brandCostSummaries[brandId];
+  };
+
   const handleBrandHover = async (brandId: string) => {
     if (brandProductCounts[brandId] === undefined) {
       await fetchSingleBrandProductCount(brandId);
+    }
+    if (brandCostSummaries[brandId] === undefined) {
+      await fetchSingleBrandCostSummary(brandId);
     }
   };
 
@@ -149,11 +187,15 @@ export default function Brands() {
         .map((brand) => ({
           id: brand.brandId,
           name: brand.name,
-          revenue: "Rs. 0.00",
-          status: "Active"
+          expectedProfit: "Rs. 0.00",
+          totalCost: "Rs. 0.00",
+          totalSales: "Rs. 0.00"
         }));
       
       setBrands(displayBrands);
+      
+      // Note: Cost summaries are now loaded on-demand when hovering over brands
+      // to improve page load performance
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       console.error('Error fetching brands:', err);
@@ -287,8 +329,20 @@ export default function Brands() {
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">Rs. 113,750</p>
-                <p className="text-gray-600 mt-1">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {loadingTotalCostSummary ? (
+                    <span className="inline-flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                      <span className="text-xl">Loading...</span>
+                    </span>
+                  ) : (
+                    `Rs. ${totalCostSummary ? totalCostSummary.target_profit.toLocaleString() : '0'}`
+                  )}
+                </p>
+                <p className="text-gray-600 mt-1">Expected Profit</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  From current stocks
+                </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <Award className="w-6 h-6 text-purple-600" />
@@ -326,10 +380,13 @@ export default function Brands() {
                     Products
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Revenue
+                    Expected Profit
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Status
+                    Total Cost
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Total Sales
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
@@ -379,12 +436,82 @@ export default function Brands() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-green-600">{brand.revenue}</span>
+                        {(() => {
+                          const costSummary = getBrandCostSummary(brand.id);
+                          const isLoadingSummary = loadingCostSummaries[brand.id];
+                          const hasCostSummary = costSummary !== undefined;
+                          
+                          if (isLoadingSummary) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
+                                Loading...
+                              </span>
+                            );
+                          }
+                          
+                          return (
+                            <span className="text-sm font-medium text-green-600">
+                              {hasCostSummary ? (
+                                `Rs. ${costSummary.target_profit.toLocaleString()}`
+                              ) : (
+                                <span className="text-gray-400">Hover to load</span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {brand.status}
-                        </span>
+                        {(() => {
+                          const costSummary = getBrandCostSummary(brand.id);
+                          const isLoadingSummary = loadingCostSummaries[brand.id];
+                          const hasCostSummary = costSummary !== undefined;
+                          
+                          if (isLoadingSummary) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
+                                Loading...
+                              </span>
+                            );
+                          }
+                          
+                          return (
+                            <span className="text-sm font-medium text-red-600">
+                              {hasCostSummary ? (
+                                `Rs. ${costSummary.total_spend.toLocaleString()}`
+                              ) : (
+                                <span className="text-gray-400">Hover to load</span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(() => {
+                          const costSummary = getBrandCostSummary(brand.id);
+                          const isLoadingSummary = loadingCostSummaries[brand.id];
+                          const hasCostSummary = costSummary !== undefined;
+                          
+                          if (isLoadingSummary) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
+                                Loading...
+                              </span>
+                            );
+                          }
+                          
+                          return (
+                            <span className="text-sm font-medium text-blue-600">
+                              {hasCostSummary ? (
+                                `Rs. ${costSummary.sales_target.toLocaleString()}`
+                              ) : (
+                                <span className="text-gray-400">Hover to load</span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">

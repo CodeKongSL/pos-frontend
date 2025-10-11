@@ -51,3 +51,24 @@ export interface BrandPaginationParams {
   page?: number;
   per_page?: number;
 }
+
+export interface BrandCostSummary {
+  brand_id: string;
+  sales_target: number;
+  target_profit: number;
+  total_spend: number;
+}
+
+export interface DisplayBrand {
+  id: string;
+  name: string;
+  expectedProfit: string;
+  totalCost: string;
+  totalSales: string;
+}
+
+export interface TotalCostSummary {
+  sales_target: number;
+  target_profit: number;
+  total_spend: number;
+}
