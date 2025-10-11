@@ -6,6 +6,7 @@ const FIND_ALL_BRANDS_URL = `${API_BASE_URL}/FindAllBrands`;
 const CREATE_BRAND_URL = `${API_BASE_URL}/CreateBrands`;
 const DELETE_BRAND_URL = `${API_BASE_URL}/DeleteBrand`;
 const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
+const FIND_BRANDS_BY_CATEGORY_URL = `${API_BASE_URL}/FindBrandsByCategory`;
 
 export const BrandService = {
   async getAllBrands(params: BrandPaginationParams = { page: 1, per_page: 15 }): Promise<BrandPaginationResponse> {
@@ -43,6 +44,62 @@ export const BrandService = {
     } catch (error) {
       console.error('Error fetching brands:', error);
       throw error;
+    }
+  },
+
+  // Method to fetch ALL brands without pagination for dropdowns
+  async getAllBrandsForDropdown(): Promise<Brand[]> {
+    try {
+      let allBrands: Brand[] = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      // Keep fetching pages until we have all brands
+      while (hasMorePages) {
+        console.log(`Fetching brands page ${currentPage}...`);
+        const response = await this.getAllBrands({ page: currentPage, per_page: 50 }); // Use maximum allowed page size
+        
+        // Add brands from this page to our collection
+        allBrands = [...allBrands, ...response.data];
+        
+        // Check if there are more pages
+        hasMorePages = currentPage < response.total_pages;
+        currentPage++;
+        
+        console.log(`Page ${currentPage - 1}: Got ${response.data.length} brands. Total so far: ${allBrands.length}/${response.total}`);
+      }
+
+      // Filter out deleted brands
+      const activeBrands = allBrands.filter(brand => !brand.deleted);
+      console.log(`Fetched ${allBrands.length} total brands, ${activeBrands.length} active brands for dropdown`);
+      return activeBrands;
+    } catch (error) {
+      console.error('Error fetching all brands for dropdown:', error);
+      throw error;
+    }
+  },
+
+  // Method to fetch brands by category ID using client-side filtering (since API endpoint doesn't exist)
+  async getBrandsByCategory(categoryId: string): Promise<Brand[]> {
+    try {
+      console.log('Fetching brands for category:', categoryId);
+      
+      if (!categoryId) {
+        console.log('No category ID provided, returning empty array');
+        return [];
+      }
+      
+      // Skip API call and use client-side filtering since endpoint doesn't exist
+      console.log('Using client-side filtering for brands by category');
+      const allBrands = await this.getAllBrandsForDropdown();
+      const filteredBrands = allBrands.filter(brand => brand.categoryId === categoryId);
+      
+      console.log(`Filtered ${filteredBrands.length} brands for category ${categoryId} from ${allBrands.length} total brands`);
+      return filteredBrands;
+      
+    } catch (error) {
+      console.error('Error fetching brands by category:', error);
+      throw new Error('Failed to fetch brands for category');
     }
   },
 
