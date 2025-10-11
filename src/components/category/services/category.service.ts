@@ -56,6 +56,36 @@ export const CategoryService = {
     }
   },
 
+  // Method to fetch ALL categories without pagination for dropdowns
+  async getAllCategoriesForDropdown(): Promise<Category[]> {
+    try {
+      let allCategories: Category[] = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      // Keep fetching pages until we have all categories
+      while (hasMorePages) {
+        console.log(`Fetching categories page ${currentPage}...`);
+        const response = await this.getAllCategories({ page: currentPage, per_page: 50 }); // Use maximum allowed page size
+        
+        // Add categories from this page to our collection
+        allCategories = [...allCategories, ...response.data];
+        
+        // Check if there are more pages
+        hasMorePages = currentPage < response.total_pages;
+        currentPage++;
+        
+        console.log(`Page ${currentPage - 1}: Got ${response.data.length} categories. Total so far: ${allCategories.length}/${response.total}`);
+      }
+
+      console.log(`Fetched all ${allCategories.length} categories for dropdown`);
+      return allCategories;
+    } catch (error) {
+      console.error('Error fetching all categories for dropdown:', error);
+      throw error;
+    }
+  },
+
   async createCategory(categoryData: CategoryCreateRequest): Promise<Category> {
     try {
       console.log('Creating category with data:', categoryData);

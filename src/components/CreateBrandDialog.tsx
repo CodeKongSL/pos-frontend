@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface CreateBrandDialogProps {
   children: React.ReactNode;
   categoryId: string;
-  onBrandCreated?: () => void;
+  onBrandCreated?: (newBrand?: any) => void;
 }
 
 interface BrandFormData {
@@ -59,14 +59,14 @@ export function CreateBrandDialog({ children, categoryId, onBrandCreated }: Crea
         setFormData({ name: "", description: "" });
         setSuccess(false);
         setOpen(false);
-        // Trigger refresh of brands list
+        // Trigger refresh of brands list with the new brand data
         if (onBrandCreated) {
-          console.log('Triggering brand list refresh...');
-          onBrandCreated();
+          console.log('Triggering brand list refresh with new brand:', newBrand);
+          onBrandCreated(newBrand);
         } else {
           console.warn('No onBrandCreated callback provided');
         }
-      }, 1500);
+      }, 1000); // Reduced delay for better UX
 
     } catch (err) {
       setError("Failed to create brand. Please try again.");

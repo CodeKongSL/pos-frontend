@@ -46,7 +46,7 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
       // Fetch category, brand, and subcategory details
       const [categories, brands, subcategories] = await Promise.all([
         CategoryService.getCategoriesOnly(),
-        BrandService.getAllBrands(),
+        BrandService.getAllBrandsForDropdown(),
         SubcategoryService.getAllSubcategories()
       ]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { CategoryService } from "./category/services/category.service";
 import { Category } from "./category/models/category.model";
@@ -47,27 +47,67 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [allBrands, setAllBrands] = useState<Brand[]>([]); // Cache all brands globally
+  const [allBrandsLoaded, setAllBrandsLoaded] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching categories and brands...');
-      const [categoriesRes, brandsRes] = await Promise.all([
-        CategoryService.getCategoriesOnly(),
-        BrandService.getAllBrands()
-      ]);
+      console.log('Fetching categories...');
+      // Only fetch categories initially, brands will be loaded when category is selected
+      const categoriesRes = await CategoryService.getAllCategoriesForDropdown();
       console.log('Categories received:', categoriesRes);
-      console.log('Brands received:', brandsRes);
+      
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
-      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
       setError(null);
     } catch (error) {
-      console.error("Failed to fetch data:", error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+      console.error("Failed to fetch categories:", error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch categories');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch brands for a specific category with optimized caching
+  const fetchBrandsForCategory = async (categoryId: string, forceRefresh: boolean = false) => {
+    if (!categoryId) {
+      setBrands([]);
+      return;
+    }
+
+    // If all brands are already loaded and not forcing refresh, filter from cache
+    if (allBrandsLoaded && !forceRefresh) {
+      console.log(`Using cached brands for category ${categoryId}`);
+      const filteredBrands = allBrands.filter(brand => brand.categoryId === categoryId);
+      setBrands(filteredBrands);
+      return;
+    }
+
+    try {
+      setLoadingBrands(true);
+      console.log(forceRefresh ? 'Force refreshing all brands...' : 'Loading all brands for first time...');
+      
+      // Load all brands once and cache them
+      const allBrandsRes = await BrandService.getAllBrandsForDropdown();
+      console.log('All brands loaded:', allBrandsRes.length);
+      
+      setAllBrands(allBrandsRes);
+      setAllBrandsLoaded(true);
+      
+      // Filter brands for the current category
+      const filteredBrands = allBrandsRes.filter(brand => brand.categoryId === categoryId);
+      console.log(`Found ${filteredBrands.length} brands for category ${categoryId}`);
+      setBrands(filteredBrands);
+      
+    } catch (error) {
+      console.error("Failed to fetch brands:", error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch brands');
+      setBrands([]);
+    } finally {
+      setLoadingBrands(false);
     }
   };
 
@@ -85,13 +125,6 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     sellingPrice: "",
   });
   const [selectedSubcategories, setSelectedSubcategories] = useState<SubcategoryData[]>([]);
-
-  // Open subcategory dialog when brand changes
-  useEffect(() => {
-    if (formData.brand) {
-      setSubcategoryDialogOpen(true);
-    }
-  }, [formData.brand]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +201,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   };
 
   const handleCategoryChange = (categoryId: string) => {
+    console.log('Category changed to:', categoryId);
     // Clear brand and subcategories when category changes
     setSelectedSubcategories([]);
     setFormData(prev => ({
@@ -175,6 +209,9 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       category: categoryId,
       brand: "", // Reset brand when category changes
     }));
+    
+    // Fetch brands for the selected category (no force refresh needed for category change)
+    fetchBrandsForCategory(categoryId, false);
   };
 
   const handleBrandChange = (brandId: string) => {
@@ -184,9 +221,10 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       ...prev,
       brand: brandId
     }));
-    // Reset the subcategory dialog state
-    setSubcategoryDialogOpen(false); // Close the dialog first
-    // The useEffect will trigger it to open again with the new brand
+    // Open subcategory dialog immediately when brand is selected
+    if (brandId) {
+      setSubcategoryDialogOpen(true);
+    }
   };
 
   const handleSubcategorySelect = (subcategoryData: SubcategoryData) => {
@@ -252,6 +290,8 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       });
       setSelectedSubcategories([]);
       setSubcategoryDialogOpen(false);
+      setBrands([]); // Clear current filtered brands when dialog closes
+      // Keep allBrands cache for better performance on reopening
     }
     setOpen(newOpen);
   };
@@ -263,6 +303,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const getTotalStock = () => {
     return selectedSubcategories.reduce((total, sub) => total + sub.quantity, 0);
   };
+
+  // Filter brands by selected category with memoization for performance
+  const filteredBrands = useMemo(() => {
+    // Since we're now loading brands by category, no additional filtering needed
+    return brands;
+  }, [brands]);
 
   const isFormValid = () => {
     return formData.name &&
@@ -342,15 +388,26 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                   disabled={!isCategorySelected}
                 >
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={isCategorySelected ? "Select a brand" : "Select category first"} />
+                    <SelectValue placeholder={
+                      !isCategorySelected 
+                        ? "Select category first" 
+                        : loadingBrands 
+                          ? "Loading brands..." 
+                          : "Select a brand"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.length === 0 ? (
+                    {loadingBrands ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Loading brands...
+                      </div>
+                    ) : filteredBrands.length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground text-center">
-                        No brands available
+                        {formData.category ? "No brands available for this category" : "Select category first"}
                       </div>
                     ) : (
-                      brands.map((brand) => (
+                      filteredBrands.map((brand) => (
                         <SelectItem key={brand.brandId} value={brand.brandId}>
                           {brand.name}
                         </SelectItem>
@@ -360,9 +417,31 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 </Select>
                 <CreateBrandDialog 
                   categoryId={formData.category}
-                  onBrandCreated={() => {
-                    console.log('Brand created, refreshing list...');
-                    fetchData();
+                  onBrandCreated={async (newBrand) => {
+                    console.log('Brand created callback triggered, refreshing brands...', newBrand);
+                    
+                    try {
+                      // Clear the cached brands completely
+                      setAllBrands([]);
+                      setAllBrandsLoaded(false);
+                      setBrands([]); // Clear current filtered brands
+                      
+                      // Force refresh brands for the current category
+                      await fetchBrandsForCategory(formData.category, true);
+                      
+                      // Auto-select the newly created brand if available
+                      if (newBrand && newBrand.brandId) {
+                        console.log('Auto-selecting newly created brand:', newBrand.brandId);
+                        setFormData(prev => ({
+                          ...prev,
+                          brand: newBrand.brandId
+                        }));
+                      }
+                    } catch (error) {
+                      console.error('Error refreshing brands after creation:', error);
+                      // Still try to refresh even if auto-selection fails
+                      fetchBrandsForCategory(formData.category, true);
+                    }
                   }}>
                   <Button type="button" variant="outline" size="sm" disabled={!isCategorySelected}>
                     <Plus className="h-4 w-4" />

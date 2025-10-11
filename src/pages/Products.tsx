@@ -75,7 +75,7 @@ export default function Products() {
       const [productsRes, categoriesRes, brandsRes] = await Promise.all([
         ProductService.getAllProducts({ per_page: perPage, cursor: apiCursor }),
         CategoryService.getCategoriesOnly(),
-        BrandService.getAllBrands()
+        BrandService.getAllBrandsForDropdown()
       ]);
       
       console.log('Products response:', productsRes);
@@ -157,7 +157,7 @@ export default function Products() {
       const [productsRes, categoriesRes, brandsRes] = await Promise.all([
         ProductService.getAllProducts({ per_page: newPerPage, cursor: undefined }),
         CategoryService.getCategoriesOnly(),
-        BrandService.getAllBrands()
+        BrandService.getAllBrandsForDropdown()
       ]);
       
       console.log('Products response:', productsRes);
