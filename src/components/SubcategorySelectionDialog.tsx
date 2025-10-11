@@ -62,8 +62,7 @@ export function SubcategorySelectionDialog({
           setError(null);
           
           // Fetch brand details
-          const allBrandsResponse = await BrandService.getAllBrands();
-          const allBrands = allBrandsResponse.data; // Extract brands from paginated response
+          const allBrands = await BrandService.getAllBrandsForDropdown();
           const selectedBrand = allBrands.find(b => b.brandId === brandId);
           console.log('Selected brand:', selectedBrand);
           setBrand(selectedBrand || null);
