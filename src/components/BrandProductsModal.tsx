@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Search, AlertCircle } from "lucide-react";
+import { X, Search, AlertCircle, ChevronRight } from "lucide-react";
 import { BrandService } from "../components/brand/services/brand.service";
 import { Product } from "../components/brand/models/brand.model";
 
@@ -14,17 +14,73 @@ export default function BrandProductsModal({ brandId, brandName, onClose }: Bran
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
-    fetchProducts();
+    if (brandId) {
+      setCurrentPage(1);
+      setProducts([]);
+      setTotalProducts(0);
+      setHasMore(false);
+      fetchProducts();
+    }
   }, [brandId]);
+
+  useEffect(() => {
+    if (brandId && currentPage > 1) {
+      fetchProducts();
+    }
+  }, [currentPage, itemsPerPage]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await BrandService.getProductsByBrandId(brandId, 50); // Get up to 50 products for display
+      const data = await BrandService.getProductsByBrandId(brandId, itemsPerPage);
+      
+      if (currentPage === 1) {
+        setProducts(data);
+      } else {
+        setProducts(prev => [...prev, ...data]);
+      }
+      
+      setTotalProducts(data.length);
+      setHasMore(data.length === itemsPerPage); // Assume there's more if we got exactly what we asked for
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handleItemsPerPageChange = async (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+    setProducts([]);
+    setTotalProducts(0);
+    setHasMore(false);
+    
+    // Fetch products with new items per page
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await BrandService.getProductsByBrandId(brandId, newItemsPerPage);
+      
       setProducts(data);
+      setTotalProducts(data.length);
+      setHasMore(data.length === newItemsPerPage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       console.error('Error fetching products:', err);
@@ -55,6 +111,7 @@ export default function BrandProductsModal({ brandId, brandName, onClose }: Bran
             <p className="text-sm text-gray-600 mt-1">
               {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
               {searchTerm && ` matching "${searchTerm}"`}
+              {hasMore && !searchTerm && <span className="text-blue-600 ml-1">(more available)</span>}
             </p>
           </div>
           <button
@@ -65,23 +122,39 @@ export default function BrandProductsModal({ brandId, brandName, onClose }: Bran
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search and Controls */}
         <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by name, ID, or barcode..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by name, ID, or barcode..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-gray-300">
+              <span className="text-sm text-gray-600 font-medium">Show:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="border-0 text-sm font-medium text-gray-900 focus:ring-0 outline-none bg-transparent cursor-pointer"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="text-sm text-gray-600">per page</span>
+            </div>
           </div>
         </div>
 
         {/* Table Content */}
         <div className="flex-1 overflow-auto">
-          {loading ? (
+          {loading && currentPage === 1 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               <p className="mt-4 text-gray-600">Loading products...</p>
@@ -182,12 +255,32 @@ export default function BrandProductsModal({ brandId, brandName, onClose }: Bran
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer with Pagination */}
         <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">
               Showing <span className="font-medium text-gray-900">{filteredProducts.length}</span> products
             </div>
+            
+            {hasMore && !searchTerm && (
+              <button
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Load More Products</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            )}
             
             <button
               onClick={onClose}
