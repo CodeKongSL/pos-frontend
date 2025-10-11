@@ -77,9 +77,6 @@ const CategoriesPage = () => {
       setProducts([]);
       setDeletedProducts(deletedProductsData);
       
-      // Remove bulk product count fetching for performance
-      // Product counts will be loaded on demand when user interacts with specific categories
-      
       setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -95,7 +92,6 @@ const CategoriesPage = () => {
       let hasMore = true;
       let cursor: string | null = null;
 
-      // Fetch all products using pagination to count them
       while (hasMore) {
         const response = await ProductService.getAllProducts({
           per_page: 100,
@@ -138,30 +134,6 @@ const CategoriesPage = () => {
     }
   };
 
-  const fetchCategoryProductCounts = async (categories: Category[]) => {
-    try {
-      const counts: Record<string, number> = {};
-      
-      // This function is now only called on demand for specific categories
-      // No longer called during initial page load for performance reasons
-      await Promise.all(
-        categories.map(async (category) => {
-          try {
-            const products = await CategoryService.getProductsByCategoryId(category.categoryId, 1000); // Large number to get all products
-            counts[category.categoryId] = products.length;
-          } catch (error) {
-            console.error(`Error fetching products for category ${category.categoryId}:`, error);
-            counts[category.categoryId] = 0;
-          }
-        })
-      );
-      
-      setCategoryProductCounts(prev => ({ ...prev, ...counts }));
-    } catch (error) {
-      console.error('Error fetching category product counts:', error);
-    }
-  };
-
   const fetchSingleCategoryProductCount = async (categoryId: string) => {
     try {
       setLoadingCounts(prev => ({ ...prev, [categoryId]: true }));
@@ -182,7 +154,6 @@ const CategoriesPage = () => {
   };
 
   const handleCategoryHover = async (categoryId: string) => {
-    // Only fetch if we don't already have the count
     if (categoryProductCounts[categoryId] === undefined) {
       await fetchSingleCategoryProductCount(categoryId);
     }
@@ -223,10 +194,8 @@ const CategoriesPage = () => {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Check if category has products using the count from our state
     let productCount = getProductCountByCategory(categoryId);
     
-    // If we don't have the count yet, fetch it before proceeding with deletion
     if (productCount === undefined) {
       productCount = await fetchSingleCategoryProductCount(categoryId);
     }
@@ -258,7 +227,7 @@ const CategoriesPage = () => {
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page when changing items per page
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -345,7 +314,7 @@ const CategoriesPage = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -358,101 +327,125 @@ const CategoriesPage = () => {
           </div>
         </div>
 
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredCategories.map((category) => {
-            const productCount = getProductCountByCategory(category.categoryId);
-            const isLoadingCount = loadingCounts[category.categoryId];
-            const hasCount = productCount !== undefined;
-            
-            return (
-              <div
-                key={category.categoryId}
-                className="group bg-gradient-to-br from-white to-blue-50/30 rounded-xl shadow-sm border border-blue-100 hover:shadow-lg hover:border-blue-300 transition-all duration-300 hover:-translate-y-1"
-                onMouseEnter={() => handleCategoryHover(category.categoryId)}
-              >
-                {/* Header with colored accent */}
-                <div className="bg-gradient-to-r from-blue-400 to-blue-500 h-1.5 rounded-t-xl"></div>
-                
-                <div className="p-4">
-                  {/* Category Icon and Actions */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                        <Folder className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-500 transition-colors">
-                          {category.name}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{category.categoryId}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 ml-2 flex-shrink-0">
-                      <button
-                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Edit category"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(category.categoryId)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete category"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t border-blue-100 my-3"></div>
-
-                  {/* Footer with product count and action */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-xs font-medium text-gray-600">
-                        {isLoadingCount ? (
-                          <span className="inline-flex items-center gap-1">
-                            <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
-                            Loading...
-                          </span>
-                        ) : hasCount ? (
-                          `${productCount} ${productCount === 1 ? 'item' : 'items'}`
-                        ) : (
-                          'Hover to load count'
-                        )}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleViewProducts(category.categoryId, category.name)}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-all hover:shadow-md active:scale-95 opacity-0 group-hover:opacity-100"
+        {/* Categories Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Category ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Products
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Created Date
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredCategories.map((category) => {
+                  const productCount = getProductCountByCategory(category.categoryId);
+                  const isLoadingCount = loadingCounts[category.categoryId];
+                  const hasCount = productCount !== undefined;
+                  
+                  return (
+                    <tr 
+                      key={category.categoryId}
+                      className="hover:bg-blue-50/50 transition-colors"
+                      onMouseEnter={() => handleCategoryHover(category.categoryId)}
                     >
-                      View
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Folder className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">{category.name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-600">{category.categoryId}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-700">
+                            {isLoadingCount ? (
+                              <span className="inline-flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
+                                Loading...
+                              </span>
+                            ) : hasCount ? (
+                              `${productCount} ${productCount === 1 ? 'item' : 'items'}`
+                            ) : (
+                              <span className="text-gray-400">Hover to load</span>
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-600">
+                          {new Date(category.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewProducts(category.categoryId, category.name)}
+                            className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            View Products
+                          </button>
+                          <button
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit category"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category.categoryId)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete category"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-        {filteredCategories.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
-            <Folder className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No categories found</h3>
-            <p className="text-gray-600">
-              {searchTerm ? 'Try adjusting your search terms' : 'Get started by creating your first category'}
-            </p>
+            {filteredCategories.length === 0 && (
+              <div className="text-center py-12">
+                <Folder className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No categories found</h3>
+                <p className="text-gray-600">
+                  {searchTerm ? 'Try adjusting your search terms' : 'Get started by creating your first category'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
         </div>
 
         {/* Pagination Controls */}
         {categoryPagination && categoryPagination.total_pages > 1 && (
           <div className="bg-white rounded-lg shadow-sm p-6 mt-6 border border-gray-200">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              {/* Items per page selector */}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Items per page:</span>
                 <select
@@ -466,12 +459,10 @@ const CategoriesPage = () => {
                 </select>
               </div>
 
-              {/* Pagination info */}
               <div className="text-sm text-gray-600">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, categoryPagination.total)} of {categoryPagination.total} categories
               </div>
 
-              {/* Pagination buttons */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
@@ -482,17 +473,14 @@ const CategoriesPage = () => {
                   Previous
                 </button>
 
-                {/* Page numbers */}
                 <div className="flex gap-1">
                   {Array.from({ length: categoryPagination.total_pages }, (_, i) => i + 1)
                     .filter(page => {
-                      // Show first page, last page, current page, and pages around current
                       return page === 1 || 
                              page === categoryPagination.total_pages || 
                              Math.abs(page - currentPage) <= 1;
                     })
                     .map((page, index, visiblePages) => {
-                      // Add ellipsis if there's a gap
                       const showEllipsisBefore = index > 0 && page > visiblePages[index - 1] + 1;
                       
                       return (

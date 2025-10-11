@@ -1,4 +1,4 @@
-import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse, BrandPaginationResponse, BrandPaginationParams } from '../models/brand.model';
+import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse, BrandPaginationResponse, BrandPaginationParams, BrandCostSummary, TotalCostSummary } from '../models/brand.model';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -7,6 +7,8 @@ const CREATE_BRAND_URL = `${API_BASE_URL}/CreateBrands`;
 const DELETE_BRAND_URL = `${API_BASE_URL}/DeleteBrand`;
 const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
 const FIND_BRANDS_BY_CATEGORY_URL = `${API_BASE_URL}/FindBrandsByCategory`;
+const CALCULATE_BRAND_COST_SUMMARY_URL = `${API_BASE_URL}/CalculateBrandCostSummary`;
+const CALCULATE_TOTAL_COST_URL = `${API_BASE_URL}/CalculateTotalCost`;
 
 export const BrandService = {
   async getAllBrands(params: BrandPaginationParams = { page: 1, per_page: 15 }): Promise<BrandPaginationResponse> {
@@ -324,6 +326,74 @@ export const BrandService = {
     } catch (error) {
       console.error('Error fetching total branded products count:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch branded products count');
+    }
+  },
+
+  async getBrandCostSummary(brandId: string): Promise<BrandCostSummary> {
+    try {
+      console.log('Fetching cost summary for brand ID:', brandId);
+      
+      if (!brandId) {
+        throw new Error('Brand ID is required');
+      }
+      
+      const url = `${CALCULATE_BRAND_COST_SUMMARY_URL}?brandId=${brandId}`;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('Server error response:', responseText);
+        throw new Error(responseText || 'Failed to fetch brand cost summary');
+      }
+
+      const data = await response.json();
+      console.log('Brand cost summary response:', data);
+      
+      return data as BrandCostSummary;
+    } catch (error) {
+      console.error('Error fetching brand cost summary:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch brand cost summary');
+    }
+  },
+
+  async getTotalCostSummary(): Promise<TotalCostSummary> {
+    try {
+      console.log('Fetching total cost summary...');
+      
+      const url = CALCULATE_TOTAL_COST_URL;
+      console.log('Request URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('Server error response:', responseText);
+        throw new Error(responseText || 'Failed to fetch total cost summary');
+      }
+
+      const data = await response.json();
+      console.log('Total cost summary response:', data);
+      
+      return data as TotalCostSummary;
+    } catch (error) {
+      console.error('Error fetching total cost summary:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch total cost summary');
     }
   }
 };
