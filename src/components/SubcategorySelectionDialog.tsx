@@ -62,7 +62,8 @@ export function SubcategorySelectionDialog({
           setError(null);
           
           // Fetch brand details
-          const allBrands = await BrandService.getAllBrands();
+          const allBrandsResponse = await BrandService.getAllBrands();
+          const allBrands = allBrandsResponse.data; // Extract brands from paginated response
           const selectedBrand = allBrands.find(b => b.brandId === brandId);
           console.log('Selected brand:', selectedBrand);
           setBrand(selectedBrand || null);
@@ -299,7 +300,7 @@ export function SubcategorySelectionDialog({
                             <h4 className="font-medium">{subcategory.name}</h4>
                           </div>
                           <div className={`w-4 h-4 rounded-full border-2 ${
-                            selectedSubcategory === subcategory.subcategoryId
+                            selectedSubcategory === getSubcategoryId(subcategory)
                               ? 'bg-primary border-primary'
                               : 'border-muted-foreground'
                           }`} />

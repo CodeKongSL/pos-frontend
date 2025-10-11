@@ -126,13 +126,6 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   });
   const [selectedSubcategories, setSelectedSubcategories] = useState<SubcategoryData[]>([]);
 
-  // Open subcategory dialog when brand changes
-  useEffect(() => {
-    if (formData.brand) {
-      setSubcategoryDialogOpen(true);
-    }
-  }, [formData.brand]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -228,9 +221,10 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       ...prev,
       brand: brandId
     }));
-    // Reset the subcategory dialog state
-    setSubcategoryDialogOpen(false); // Close the dialog first
-    // The useEffect will trigger it to open again with the new brand
+    // Open subcategory dialog immediately when brand is selected
+    if (brandId) {
+      setSubcategoryDialogOpen(true);
+    }
   };
 
   const handleSubcategorySelect = (subcategoryData: SubcategoryData) => {
