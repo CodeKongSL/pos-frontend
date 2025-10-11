@@ -1,4 +1,4 @@
-import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse } from '../models/brand.model';
+import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse, BrandPaginationResponse, BrandPaginationParams } from '../models/brand.model';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -8,17 +8,38 @@ const DELETE_BRAND_URL = `${API_BASE_URL}/DeleteBrand`;
 const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
 
 export const BrandService = {
-  async getAllBrands(): Promise<Brand[]> {
+  async getAllBrands(params: BrandPaginationParams = { page: 1, per_page: 15 }): Promise<BrandPaginationResponse> {
     try {
-      console.log('Making API request to:', FIND_ALL_BRANDS_URL);
-      const response = await fetch(FIND_ALL_BRANDS_URL);
+      const queryParams = new URLSearchParams({
+        page: (params.page || 1).toString(),
+        per_page: (params.per_page || 15).toString()
+      });
+      
+      const url = `${FIND_ALL_BRANDS_URL}?${queryParams.toString()}`;
+      console.log('Making API request to:', url);
+      
+      const response = await fetch(url);
       console.log('Response status:', response.status);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch brands');
       }
+      
       const data = await response.json();
       console.log('Raw API response:', data);
-      return data;
+      
+      return data as BrandPaginationResponse;
+    } catch (error) {
+      console.error('Error fetching brands:', error);
+      throw error;
+    }
+  },
+
+  // Legacy method for backward compatibility - returns only the brands array
+  async getBrandsOnly(params: BrandPaginationParams = { page: 1, per_page: 15 }): Promise<Brand[]> {
+    try {
+      const response = await this.getAllBrands(params);
+      return response.data;
     } catch (error) {
       console.error('Error fetching brands:', error);
       throw error;

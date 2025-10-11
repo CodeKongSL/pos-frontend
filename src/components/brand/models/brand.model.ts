@@ -38,3 +38,16 @@ export interface ProductsByBrandResponse {
   next_cursor: string | null;
   has_more: boolean;
 }
+
+export interface BrandPaginationResponse {
+  data: Brand[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface BrandPaginationParams {
+  page?: number;
+  per_page?: number;
+}
