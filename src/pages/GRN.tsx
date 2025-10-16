@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CreateGRNDialog } from "@/components/CreateGRNDialog";
 
 const grnNotes = [
   { id: "GRN1001", supplier: "Cargills", amount: "Rs. 5,000.00", date: "2025-01-20", status: "Approved", items: 15 },
@@ -50,10 +51,15 @@ export default function GRN() {
           <h1 className="text-3xl font-bold text-foreground">GRN Notes</h1>
           <p className="text-muted-foreground mt-1">Manage Goods Received Notes from suppliers</p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          New GRN
-        </Button>
+        <CreateGRNDialog onGRNCreated={() => {
+          // Refresh GRN list - you can implement this later
+          console.log('GRN created, refreshing list...');
+        }}>
+          <Button className="bg-primary hover:bg-primary-hover">
+            <Plus className="h-4 w-4 mr-2" />
+            New GRN
+          </Button>
+        </CreateGRNDialog>
       </div>
 
       {/* Quick Stats */}
