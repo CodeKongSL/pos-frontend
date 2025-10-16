@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Plus, FileText, CheckCircle, XCircle, Printer } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, FileText, CheckCircle, XCircle, Printer, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,34 +12,81 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const grnNotes = [
-  { id: "GRN1001", supplier: "Cargills", amount: "Rs. 5,000.00", date: "2025-01-20", status: "Approved", items: 15 },
-  { id: "GRN1002", supplier: "Nestle", amount: "Rs. 8,200.00", date: "2025-01-19", status: "Pending", items: 22 },
-  { id: "GRN1003", supplier: "Hemas", amount: "Rs. 4,100.00", date: "2025-01-18", status: "Approved", items: 8 },
-  { id: "GRN1004", supplier: "Unilever", amount: "Rs. 6,500.00", date: "2025-01-17", status: "Rejected", items: 18 },
-  { id: "GRN1005", supplier: "Prima", amount: "Rs. 7,300.00", date: "2025-01-16", status: "Approved", items: 12 },
-];
+import { CreateGRNDialog } from "@/components/CreateGRNDialog";
+import { GRNService } from "@/components/grn/services/grn.service";
+import type { GRN } from "@/components/grn/models/grn.model";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function GRN() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [grns, setGrns] = useState<GRN[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredGRNs = grnNotes.filter(grn =>
-    grn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    grn.supplier.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fetch GRNs on component mount
+  useEffect(() => {
+    fetchGRNs();
+  }, []);
+
+  const fetchGRNs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await GRNService.getAllGRNs();
+      setGrns(data);
+    } catch (err) {
+      console.error('Error fetching GRNs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch GRNs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredGRNs = grns.filter(grn =>
+    grn.grnNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    grn.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    grn.grnId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Calculate stats
+  const totalGRNs = grns.length;
+  const completedGRNs = grns.filter(grn => grn.status === 'completed').length;
+  const pendingGRNs = grns.filter(grn => grn.status === 'pending').length;
+  const partialReceivedGRNs = grns.filter(grn => grn.status === 'partial_received').length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "Approved":
-        return <Badge className="bg-success text-success-foreground">Approved</Badge>;
-      case "Pending":
+      case "completed":
+        return <Badge className="bg-success text-success-foreground">Completed</Badge>;
+      case "pending":
         return <Badge variant="outline" className="text-warning border-warning">Pending</Badge>;
-      case "Rejected":
-        return <Badge variant="destructive">Rejected</Badge>;
+      case "partial_received":
+        return <Badge variant="outline" className="text-blue-600 border-blue-600">Partial Received</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `Rs. ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const handleGRNCreated = () => {
+    console.log('GRN created, refreshing list...');
+    fetchGRNs(); // Refresh the list when a new GRN is created
   };
 
   return (
@@ -50,11 +97,20 @@ export default function GRN() {
           <h1 className="text-3xl font-bold text-foreground">GRN Notes</h1>
           <p className="text-muted-foreground mt-1">Manage Goods Received Notes from suppliers</p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          New GRN
-        </Button>
+        <CreateGRNDialog onGRNCreated={handleGRNCreated}>
+          <Button className="bg-primary hover:bg-primary-hover">
+            <Plus className="h-4 w-4 mr-2" />
+            New GRN
+          </Button>
+        </CreateGRNDialog>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -62,7 +118,7 @@ export default function GRN() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-foreground">12</p>
+                <p className="text-2xl font-bold text-foreground">{loading ? "-" : totalGRNs}</p>
                 <p className="text-sm text-muted-foreground">Total GRNs</p>
               </div>
               <FileText className="h-8 w-8 text-primary" />
@@ -73,8 +129,8 @@ export default function GRN() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">8</p>
-                <p className="text-sm text-muted-foreground">Approved</p>
+                <p className="text-2xl font-bold text-success">{loading ? "-" : completedGRNs}</p>
+                <p className="text-sm text-muted-foreground">Completed</p>
               </div>
               <CheckCircle className="h-8 w-8 text-success" />
             </div>
@@ -84,7 +140,7 @@ export default function GRN() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-warning">3</p>
+                <p className="text-2xl font-bold text-warning">{loading ? "-" : pendingGRNs}</p>
                 <p className="text-sm text-muted-foreground">Pending</p>
               </div>
               <FileText className="h-8 w-8 text-warning" />
@@ -95,10 +151,10 @@ export default function GRN() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-destructive">1</p>
-                <p className="text-sm text-muted-foreground">Rejected</p>
+                <p className="text-2xl font-bold text-blue-600">{loading ? "-" : partialReceivedGRNs}</p>
+                <p className="text-sm text-muted-foreground">Partial Received</p>
               </div>
-              <XCircle className="h-8 w-8 text-destructive" />
+              <XCircle className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -125,51 +181,68 @@ export default function GRN() {
           <CardTitle>GRN Records ({filteredGRNs.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>GRN ID</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredGRNs.map((grn) => (
-                <TableRow key={grn.id}>
-                  <TableCell className="font-medium">{grn.id}</TableCell>
-                  <TableCell>{grn.supplier}</TableCell>
-                  <TableCell className="text-accent font-semibold">{grn.amount}</TableCell>
-                  <TableCell>{grn.items} items</TableCell>
-                  <TableCell>{grn.date}</TableCell>
-                  <TableCell>{getStatusBadge(grn.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      {grn.status === "Pending" && (
-                        <>
-                          <Button size="sm" className="bg-success hover:bg-success-hover text-success-foreground">
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading GRNs...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>GRN Number</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredGRNs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      {searchTerm ? 'No GRNs found matching your search.' : 'No GRNs available.'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredGRNs.map((grn) => (
+                    <TableRow key={grn.grnId || grn.grnNumber}>
+                      <TableCell className="font-medium">{grn.grnNumber}</TableCell>
+                      <TableCell>{grn.supplierName || 'Unknown Supplier'}</TableCell>
+                      <TableCell className="text-accent font-semibold">
+                        {grn.totalAmount ? formatCurrency(grn.totalAmount) : 'N/A'}
+                      </TableCell>
+                      <TableCell>{grn.items.length} items</TableCell>
+                      <TableCell>{formatDate(grn.receivedDate)}</TableCell>
+                      <TableCell>{getStatusBadge(grn.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          {grn.status === "pending" && (
+                            <>
+                              <Button size="sm" className="bg-success hover:bg-success-hover text-success-foreground">
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
