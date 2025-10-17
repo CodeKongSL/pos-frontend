@@ -8,6 +8,7 @@ const UPDATE_GRN_STATUS_URL = `${API_BASE_URL}/UpdateGRNStatus`;
 const GET_TOTAL_GRNS_COUNT_URL = `${API_BASE_URL}/GetTotalGRNsCount`;
 const GET_COMPLETED_GRNS_COUNT_URL = `${API_BASE_URL}/GetCompletedGRNsCount`;
 const GET_PENDING_GRNS_COUNT_URL = `${API_BASE_URL}/GetPendingGRNsCount`;
+const GET_PARTIAL_RECEIVED_GRNS_COUNT_URL = `${API_BASE_URL}/GetPartialReceivedGRNsCount`;
 
 export const GRNService = {
   async createGRN(grnData: GRNCreateRequest): Promise<GRN> {
@@ -258,6 +259,39 @@ export const GRNService = {
     } catch (error) {
       console.error('Error fetching pending GRNs count:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch pending GRNs count');
+    }
+  },
+
+  async getPartialReceivedGRNsCount(): Promise<number> {
+    try {
+      console.log('Fetching partial received GRNs count...');
+      
+      const response = await fetch(GET_PARTIAL_RECEIVED_GRNS_COUNT_URL, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Partial Received GRNs Count Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Raw Partial Received GRNs Count response:', responseText);
+
+      if (!response.ok) {
+        console.error('Partial Received GRNs Count Server error response:', responseText);
+        throw new Error(`Failed to fetch partial received GRNs count: ${response.status}`);
+      }
+
+      // Parse the response
+      const data = responseText ? JSON.parse(responseText) : { partial_received_grns: 0 };
+      
+      // Return the partial_received_grns count or 0 if not found
+      return data.partial_received_grns || 0;
+    } catch (error) {
+      console.error('Error fetching partial received GRNs count:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch partial received GRNs count');
     }
   }
 };
