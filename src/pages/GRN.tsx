@@ -22,6 +22,7 @@ export default function GRN() {
   const [grns, setGrns] = useState<GRN[]>([]);
   const [grnPagination, setGrnPagination] = useState<GRNPaginationResponse | null>(null);
   const [totalGRNsCount, setTotalGRNsCount] = useState<number>(0);
+  const [completedGRNsCount, setCompletedGRNsCount] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [loading, setLoading] = useState(true);
@@ -43,13 +44,14 @@ export default function GRN() {
       setLoading(true);
       setError(null);
       
-      // Fetch both GRNs and total count in parallel
-      const [grnData, totalCount] = await Promise.all([
+      // Fetch GRNs, total count, and completed count in parallel
+      const [grnData, totalCount, completedCount] = await Promise.all([
         GRNService.getAllGRNs({ 
           page: currentPage, 
           per_page: itemsPerPage 
         }),
-        GRNService.getTotalGRNsCount()
+        GRNService.getTotalGRNsCount(),
+        GRNService.getCompletedGRNsCount()
       ]);
       
       console.log('Fetched GRNs data:', {
@@ -60,12 +62,14 @@ export default function GRN() {
           total: grnData.total,
           total_pages: grnData.total_pages
         },
-        actualTotalCount: totalCount
+        actualTotalCount: totalCount,
+        actualCompletedCount: completedCount
       });
       
       setGrnPagination(grnData);
       setGrns(grnData.data);
       setTotalGRNsCount(totalCount);
+      setCompletedGRNsCount(completedCount);
     } catch (err) {
       console.error('Error fetching GRNs:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch GRNs');
@@ -80,8 +84,7 @@ export default function GRN() {
     grn.grnId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate stats based on current page data
-  const completedGRNs = grns.filter(grn => grn.status === 'completed').length;
+  // Calculate stats based on current page data (except completed which comes from API)
   const pendingGRNs = grns.filter(grn => grn.status === 'pending').length;
   const partialReceivedGRNs = grns.filter(grn => grn.status === 'partial_received').length;
 
@@ -116,8 +119,8 @@ export default function GRN() {
   };
 
   const handleGRNCreated = () => {
-    console.log('GRN created, refreshing list and total count...');
-    fetchGRNs(); // Refresh the list and total count when a new GRN is created
+    console.log('GRN created, refreshing list and counts...');
+    fetchGRNs(); // Refresh the list and all counts when a new GRN is created
   };
 
   const handleStatusUpdate = async (grnId: string, newStatus: 'completed' | 'partial_received') => {
@@ -196,7 +199,7 @@ export default function GRN() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">{loading ? "-" : completedGRNs}</p>
+                <p className="text-2xl font-bold text-success">{loading ? "-" : completedGRNsCount}</p>
                 <p className="text-sm text-muted-foreground">Completed</p>
               </div>
               <CheckCircle className="h-8 w-8 text-success" />
