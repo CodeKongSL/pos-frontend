@@ -7,6 +7,7 @@ const FIND_ALL_GRNS_URL = `${API_BASE_URL}/FindAllGRNs`;
 const UPDATE_GRN_STATUS_URL = `${API_BASE_URL}/UpdateGRNStatus`;
 const GET_TOTAL_GRNS_COUNT_URL = `${API_BASE_URL}/GetTotalGRNsCount`;
 const GET_COMPLETED_GRNS_COUNT_URL = `${API_BASE_URL}/GetCompletedGRNsCount`;
+const GET_PENDING_GRNS_COUNT_URL = `${API_BASE_URL}/GetPendingGRNsCount`;
 
 export const GRNService = {
   async createGRN(grnData: GRNCreateRequest): Promise<GRN> {
@@ -224,6 +225,39 @@ export const GRNService = {
     } catch (error) {
       console.error('Error fetching completed GRNs count:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch completed GRNs count');
+    }
+  },
+
+  async getPendingGRNsCount(): Promise<number> {
+    try {
+      console.log('Fetching pending GRNs count...');
+      
+      const response = await fetch(GET_PENDING_GRNS_COUNT_URL, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Pending GRNs Count Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Raw Pending GRNs Count response:', responseText);
+
+      if (!response.ok) {
+        console.error('Pending GRNs Count Server error response:', responseText);
+        throw new Error(`Failed to fetch pending GRNs count: ${response.status}`);
+      }
+
+      // Parse the response
+      const data = responseText ? JSON.parse(responseText) : { pending_grns: 0 };
+      
+      // Return the pending_grns count or 0 if not found
+      return data.pending_grns || 0;
+    } catch (error) {
+      console.error('Error fetching pending GRNs count:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch pending GRNs count');
     }
   }
 };
