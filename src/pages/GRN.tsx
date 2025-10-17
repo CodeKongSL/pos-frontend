@@ -25,6 +25,7 @@ export default function GRN() {
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   // Fetch GRNs on component mount
   useEffect(() => {
@@ -110,6 +111,32 @@ export default function GRN() {
   const handleGRNCreated = () => {
     console.log('GRN created, refreshing list...');
     fetchGRNs(); // Refresh the list when a new GRN is created
+  };
+
+  const handleStatusUpdate = async (grnId: string, newStatus: 'completed' | 'partial_received') => {
+    if (!grnId) {
+      console.error('GRN ID is required for status update');
+      return;
+    }
+
+    try {
+      setUpdatingStatus(grnId);
+      setError(null);
+      
+      console.log('Updating GRN status:', { grnId, newStatus });
+      
+      await GRNService.updateGRNStatus(grnId, newStatus);
+      
+      // Refresh the GRN list to show updated status
+      await fetchGRNs();
+      
+      console.log('GRN status updated successfully');
+    } catch (err) {
+      console.error('Error updating GRN status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update GRN status');
+    } finally {
+      setUpdatingStatus(null);
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -260,8 +287,17 @@ export default function GRN() {
                           </Button>
                           {grn.status === "pending" && (
                             <>
-                              <Button size="sm" className="bg-success hover:bg-success-hover text-success-foreground">
-                                <CheckCircle className="h-4 w-4" />
+                              <Button 
+                                size="sm" 
+                                className="bg-success hover:bg-success-hover text-success-foreground"
+                                onClick={() => handleStatusUpdate(grn.grnId!, 'completed')}
+                                disabled={updatingStatus === grn.grnId}
+                              >
+                                {updatingStatus === grn.grnId ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4" />
+                                )}
                               </Button>
                               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
                                 <XCircle className="h-4 w-4" />

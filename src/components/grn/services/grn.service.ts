@@ -4,6 +4,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
 const CREATE_GRN_URL = `${API_BASE_URL}/CreateGRN`;
 const FIND_ALL_GRNS_URL = `${API_BASE_URL}/FindAllGRNs`;
+const UPDATE_GRN_STATUS_URL = `${API_BASE_URL}/UpdateGRNStatus`;
 
 export const GRNService = {
   async createGRN(grnData: GRNCreateRequest): Promise<GRN> {
@@ -106,6 +107,55 @@ export const GRNService = {
     } catch (error) {
       console.error('Error fetching GRNs:', error);
       throw error;
+    }
+  },
+
+  async updateGRNStatus(grnId: string, status: 'pending' | 'completed' | 'partial_received'): Promise<GRN> {
+    try {
+      console.log('Updating GRN status:', { grnId, status });
+      
+      const response = await fetch(UPDATE_GRN_STATUS_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          grnId: grnId,
+          status: status
+        })
+      });
+
+      console.log('Update GRN Status Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Raw Update GRN Status response:', responseText);
+
+      if (!response.ok) {
+        console.error('Update GRN Status Server error response:', responseText);
+        
+        let errorMessage = 'Failed to update GRN status';
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorMessage = responseText || 'Invalid server response';
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Try to parse the response as JSON if it's not empty
+      const data = responseText ? JSON.parse(responseText) : {};
+      
+      return data;
+    } catch (error) {
+      console.error('Error updating GRN status:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to update GRN status');
     }
   }
 };
