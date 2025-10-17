@@ -40,3 +40,16 @@ export interface GRNCreateRequest {
   receivedBy: string;
   notes: string;
 }
+
+export interface GRNPaginationResponse {
+  data: GRN[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface GRNPaginationParams {
+  page?: number;
+  per_page?: number;
+}
