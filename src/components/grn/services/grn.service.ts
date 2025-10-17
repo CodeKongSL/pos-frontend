@@ -1,4 +1,4 @@
-import { GRN, GRNCreateRequest } from '../models/grn.model';
+import { GRN, GRNCreateRequest, GRNPaginationResponse, GRNPaginationParams } from '../models/grn.model';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -55,11 +55,17 @@ export const GRNService = {
     }
   },
 
-  async getAllGRNs(): Promise<GRN[]> {
+  async getAllGRNs(params: GRNPaginationParams = { page: 1, per_page: 15 }): Promise<GRNPaginationResponse> {
     try {
-      console.log('Fetching all GRNs...');
+      const queryParams = new URLSearchParams({
+        page: (params.page || 1).toString(),
+        per_page: (params.per_page || 15).toString()
+      });
       
-      const response = await fetch(FIND_ALL_GRNS_URL, {
+      const url = `${FIND_ALL_GRNS_URL}?${queryParams.toString()}`;
+      console.log('Making API request to:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -78,15 +84,28 @@ export const GRNService = {
       }
 
       // Parse the response
-      const data = responseText ? JSON.parse(responseText) : [];
+      const data = responseText ? JSON.parse(responseText) : { data: [], page: 1, per_page: 15, total: 0, total_pages: 0 };
       
-      // Filter out deleted GRNs
-      const filteredData = Array.isArray(data) ? data.filter((grn: GRN) => !grn.deleted) : [];
+      // Filter out deleted GRNs from the data array
+      if (data.data && Array.isArray(data.data)) {
+        data.data = data.data.filter((grn: GRN) => !grn.deleted);
+      }
       
-      return filteredData;
+      return data as GRNPaginationResponse;
     } catch (error) {
       console.error('Error fetching GRNs:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch GRNs');
+    }
+  },
+
+  // Legacy method for backward compatibility - returns only the GRNs array
+  async getGRNsOnly(params: GRNPaginationParams = { page: 1, per_page: 15 }): Promise<GRN[]> {
+    try {
+      const response = await this.getAllGRNs(params);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching GRNs:', error);
+      throw error;
     }
   }
 };

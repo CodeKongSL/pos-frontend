@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Plus, FileText, CheckCircle, XCircle, Printer, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Plus, FileText, CheckCircle, XCircle, Printer, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,15 @@ import {
 } from "@/components/ui/table";
 import { CreateGRNDialog } from "@/components/CreateGRNDialog";
 import { GRNService } from "@/components/grn/services/grn.service";
-import type { GRN } from "@/components/grn/models/grn.model";
+import type { GRN, GRNPaginationResponse } from "@/components/grn/models/grn.model";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function GRN() {
   const [searchTerm, setSearchTerm] = useState("");
   const [grns, setGrns] = useState<GRN[]>([]);
+  const [grnPagination, setGrnPagination] = useState<GRNPaginationResponse | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,12 +31,32 @@ export default function GRN() {
     fetchGRNs();
   }, []);
 
+  // Fetch GRNs when pagination changes
+  useEffect(() => {
+    fetchGRNs();
+  }, [currentPage, itemsPerPage]);
+
   const fetchGRNs = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await GRNService.getAllGRNs();
-      setGrns(data);
+      const data = await GRNService.getAllGRNs({ 
+        page: currentPage, 
+        per_page: itemsPerPage 
+      });
+      
+      console.log('Fetched GRNs data:', {
+        grnsCount: data.data.length,
+        pagination: {
+          page: data.page,
+          per_page: data.per_page,
+          total: data.total,
+          total_pages: data.total_pages
+        }
+      });
+      
+      setGrnPagination(data);
+      setGrns(data.data);
     } catch (err) {
       console.error('Error fetching GRNs:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch GRNs');
@@ -48,8 +71,8 @@ export default function GRN() {
     grn.grnId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate stats
-  const totalGRNs = grns.length;
+  // Calculate stats based on current page data
+  const totalGRNs = grnPagination?.total || 0;
   const completedGRNs = grns.filter(grn => grn.status === 'completed').length;
   const pendingGRNs = grns.filter(grn => grn.status === 'pending').length;
   const partialReceivedGRNs = grns.filter(grn => grn.status === 'partial_received').length;
@@ -89,6 +112,15 @@ export default function GRN() {
     fetchGRNs(); // Refresh the list when a new GRN is created
   };
 
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -120,6 +152,7 @@ export default function GRN() {
               <div>
                 <p className="text-2xl font-bold text-foreground">{loading ? "-" : totalGRNs}</p>
                 <p className="text-sm text-muted-foreground">Total GRNs</p>
+                <p className="text-xs text-muted-foreground">Showing {grns.length} of {totalGRNs}</p>
               </div>
               <FileText className="h-8 w-8 text-primary" />
             </div>
@@ -245,6 +278,84 @@ export default function GRN() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination Controls */}
+      {grnPagination && grnPagination.total_pages > 1 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Items per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="border border-input rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-ring focus:border-transparent outline-none bg-background"
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, grnPagination.total)} of {grnPagination.total} GRNs
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+
+                <div className="flex gap-1">
+                  {Array.from({ length: grnPagination.total_pages }, (_, i) => i + 1)
+                    .filter(page => {
+                      return page === 1 || 
+                             page === grnPagination.total_pages || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, index, visiblePages) => {
+                      const showEllipsisBefore = index > 0 && page > visiblePages[index - 1] + 1;
+                      
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsisBefore && (
+                            <span className="px-3 py-2 text-sm text-muted-foreground">...</span>
+                          )}
+                          <Button
+                            variant={page === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(page)}
+                            className="px-3 py-2 text-sm"
+                          >
+                            {page}
+                          </Button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === grnPagination.total_pages}
+                  className="flex items-center gap-1"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
