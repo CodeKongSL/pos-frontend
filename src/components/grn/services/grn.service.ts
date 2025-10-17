@@ -5,6 +5,7 @@ const API_BASE_URL = 'https://my-go-backend.onrender.com';
 const CREATE_GRN_URL = `${API_BASE_URL}/CreateGRN`;
 const FIND_ALL_GRNS_URL = `${API_BASE_URL}/FindAllGRNs`;
 const UPDATE_GRN_STATUS_URL = `${API_BASE_URL}/UpdateGRNStatus`;
+const GET_TOTAL_GRNS_COUNT_URL = `${API_BASE_URL}/GetTotalGRNsCount`;
 
 export const GRNService = {
   async createGRN(grnData: GRNCreateRequest): Promise<GRN> {
@@ -156,6 +157,39 @@ export const GRNService = {
     } catch (error) {
       console.error('Error updating GRN status:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to update GRN status');
+    }
+  },
+
+  async getTotalGRNsCount(): Promise<number> {
+    try {
+      console.log('Fetching total GRNs count...');
+      
+      const response = await fetch(GET_TOTAL_GRNS_COUNT_URL, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log('Total GRNs Count Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Raw Total GRNs Count response:', responseText);
+
+      if (!response.ok) {
+        console.error('Total GRNs Count Server error response:', responseText);
+        throw new Error(`Failed to fetch total GRNs count: ${response.status}`);
+      }
+
+      // Parse the response
+      const data = responseText ? JSON.parse(responseText) : { total_grns: 0 };
+      
+      // Return the total_grns count or 0 if not found
+      return data.total_grns || 0;
+    } catch (error) {
+      console.error('Error fetching total GRNs count:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch total GRNs count');
     }
   }
 };
