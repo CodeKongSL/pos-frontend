@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateGRNDialog } from "@/components/CreateGRNDialog";
+import { GRNReportDialog } from "@/components/GRNReportDialog";
 import { GRNService } from "@/components/grn/services/grn.service";
 import type { GRN, GRNPaginationResponse } from "@/components/grn/models/grn.model";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,6 +31,8 @@ export default function GRN() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [selectedGRNForReport, setSelectedGRNForReport] = useState<{ grnId: string; grnNumber: string } | null>(null);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   // Fetch GRNs on component mount
   useEffect(() => {
@@ -164,6 +167,21 @@ export default function GRN() {
     setCurrentPage(1);
   };
 
+  const handleViewReport = (grn: GRN) => {
+    if (grn.grnId) {
+      setSelectedGRNForReport({
+        grnId: grn.grnId,
+        grnNumber: grn.grnNumber
+      });
+      setIsReportDialogOpen(true);
+    }
+  };
+
+  const handleCloseReportDialog = () => {
+    setIsReportDialogOpen(false);
+    setSelectedGRNForReport(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -295,10 +313,16 @@ export default function GRN() {
                       <TableCell>{getStatusBadge(grn.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewReport(grn)}
+                            title="View GRN Report"
+                            disabled={!grn.grnId}
+                          >
                             <FileText className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" title="Print GRN">
                             <Printer className="h-4 w-4" />
                           </Button>
                           {grn.status === "pending" && (
@@ -408,6 +432,14 @@ export default function GRN() {
           </CardContent>
         </Card>
       )}
+
+      {/* GRN Report Dialog */}
+      <GRNReportDialog
+        grnId={selectedGRNForReport?.grnId || null}
+        grnNumber={selectedGRNForReport?.grnNumber || ""}
+        isOpen={isReportDialogOpen}
+        onClose={handleCloseReportDialog}
+      />
     </div>
   );
 }

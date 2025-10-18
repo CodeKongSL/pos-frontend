@@ -135,3 +135,80 @@
     transition: var(--transition-smooth);
   }
 }
+
+/* Print-specific styles for GRN reports */
+@media print {
+  body {
+    color: black !important;
+    background: white !important;
+  }
+  
+  .print\\:hidden {
+    display: none !important;
+  }
+  
+  .print\\:block {
+    display: block !important;
+  }
+  
+  .print\\:text-black {
+    color: black !important;
+  }
+  
+  .print\\:bg-white {
+    background-color: white !important;
+  }
+  
+  .print\\:border-black {
+    border-color: black !important;
+  }
+  
+  .print\\:max-w-none {
+    max-width: none !important;
+  }
+  
+  .print\\:max-h-none {
+    max-height: none !important;
+  }
+  
+  .print\\:overflow-visible {
+    overflow: visible !important;
+  }
+  
+  .print\\:space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+  
+  .print\\:border-b-2 {
+    border-bottom-width: 2px !important;
+  }
+  
+  .print\\:text-3xl {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+  
+  /* Remove shadows and borders that don't print well */
+  .shadow, .shadow-sm, .shadow-lg {
+    box-shadow: none !important;
+  }
+  
+  /* Ensure tables print properly */
+  table {
+    border-collapse: collapse !important;
+  }
+  
+  th, td {
+    border: 1px solid black !important;
+    padding: 8px !important;
+  }
+  
+  /* Page breaks */
+  .print\\:break-before-page {
+    page-break-before: always !important;
+  }
+  
+  .print\\:break-after-avoid {
+    page-break-after: avoid !important;
+  }
+}
