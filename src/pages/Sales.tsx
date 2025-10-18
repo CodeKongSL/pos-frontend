@@ -94,7 +94,7 @@ export default function Sales() {
     } catch (error) {
       console.error("Failed to load products:", error);
       setProducts([]); // Set empty array on error
-      alert("Failed to load products. Please check if the backend is running at http://localhost:3000");
+      alert("Failed to load products. Please check if the backend is running at https://my-go-backend.onrender.com");
     } finally {
       setIsLoading(false);
     }

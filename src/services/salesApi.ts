@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "https://my-go-backend.onrender.com";
 
 export interface Product {
   id: string;
