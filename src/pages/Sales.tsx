@@ -1,43 +1,106 @@
-import { useState } from "react";
-import { Plus, Banknote, CreditCard, Scan, ShoppingCart, Trash2, Printer } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Scan, ShoppingCart, Trash2, Loader2 } from "lucide-react";
 
 // UI Components
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Sales Components
 import { CustomerInfoDialog } from "@/components/sales/CustomerInfoDialog";
 import { PaymentDialog } from "@/components/sales/PaymentDialog";
-import { BarcodeScanner } from "@/components/sales/BarcodeScanner";
-import { ProductSelector } from "@/components/sales/ProductSelector";
-import { CartList } from "@/components/sales/CartList";
-import { OrderSummary } from "@/components/sales/OrderSummary";
-import { QuickStats } from "@/components/sales/QuickStats";
+import { ReceiptDialog } from "@/components/sales/ReceiptDialog";
 
-// Sample products data
-const products = [
-  { id: "1", barcode: "123456", name: "Pepsi 500ml", price: 150, stock: 20 },
-  { id: "2", barcode: "123457", name: "Milo 200ml", price: 120, stock: 15 },
-  { id: "3", barcode: "123458", name: "Anchor Milk Powder 400g", price: 850, stock: 8 },
-  { id: "4", barcode: "123459", name: "Sunlight Soap 100g", price: 95, stock: 25 },
-  { id: "5", barcode: "123460", name: "Lifebuoy Handwash 200ml", price: 280, stock: 12 },
-];
+// API
+import { salesApi, Product, CreateSaleResponse } from "@/services/salesApi";
+
+// Debug: Expose salesApi to window for console testing
+if (typeof window !== 'undefined') {
+  (window as any).salesApi = salesApi;
+}
+
+// Extended Product type for cart
+interface CartProduct extends Product {
+  quantity: number;
+}
 
 // Main Sales Component
 export default function Sales() {
+  // State
   const [showCustomerDialog, setShowCustomerDialog] = useState(true);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [customer, setCustomer] = useState(null);
-  const [cartItems, setCartItems] = useState([]);
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [customer, setCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cartItems, setCartItems] = useState<CartProduct[]>([]);
   const [barcode, setBarcode] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedQuantity, setSelectedQuantity] = useState("1");
+  
+  // Order summary state
+  const [orderSummary, setOrderSummary] = useState({
+    subtotal: 0,
+    tax: 0,
+    discount: 0,
+    total: 0,
+  });
+  const [taxPercentage, setTaxPercentage] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  
+  // Loading and sale state
+  const [isLoading, setIsLoading] = useState(false);
+  const [saleData, setSaleData] = useState<CreateSaleResponse["sale"] | null>(null);
 
-  const handleCustomerSubmit = (customerInfo) => {
+  // Load products on mount
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  // Calculate order summary whenever cart changes (with debouncing for API calls)
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      // Calculate locally immediately for instant feedback
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const taxAmount = taxPercentage > 0 ? (subtotal * taxPercentage) / 100 : 0;
+      const discountAmount = discount > 0 
+        ? (discountType === "percentage" ? (subtotal * discount) / 100 : discount)
+        : 0;
+      const total = subtotal + taxAmount - discountAmount;
+      
+      setOrderSummary({
+        subtotal,
+        tax: taxAmount,
+        discount: discountAmount,
+        total: Math.max(0, total),
+      });
+      
+      // Debounce API call for large carts (only if needed in future)
+      // For now, skip API call since local calculation is sufficient
+    } else {
+      setOrderSummary({ subtotal: 0, tax: 0, discount: 0, total: 0 });
+    }
+  }, [cartItems, taxPercentage, discount, discountType]);
+
+  const loadProducts = async () => {
+    setIsLoading(true);
+    try {
+      const fetchedProducts = await salesApi.findAllProducts();
+      // Ensure we always set an array, even if API returns something unexpected
+      setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+    } catch (error) {
+      console.error("Failed to load products:", error);
+      setProducts([]); // Set empty array on error
+      alert("Failed to load products. Please check if the backend is running at https://my-go-backend.onrender.com");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCustomerSubmit = (customerInfo: { name: string; phone: string }) => {
     setCustomer(customerInfo);
     setShowCustomerDialog(false);
   };
@@ -47,37 +110,74 @@ export default function Sales() {
   };
 
   const addItemByBarcode = () => {
+    if (!Array.isArray(products) || products.length === 0) {
+      alert("Products not loaded yet. Please wait...");
+      return;
+    }
     const product = products.find(p => p.barcode === barcode);
     if (product) {
-      addToCart(product);
+      const quantity = 1; // Default quantity for barcode scan
+      addToCart(product, quantity);
       setBarcode("");
+    } else {
+      alert("Product not found!");
     }
   };
 
   const addItemBySelect = () => {
+    if (!Array.isArray(products) || products.length === 0) {
+      alert("Products not loaded yet. Please wait...");
+      return;
+    }
     const product = products.find(p => p.id === selectedProduct);
     if (product) {
-      addToCart(product);
+      const quantity = parseInt(selectedQuantity) || 1;
+      if (quantity > product.stock) {
+        alert(`Only ${product.stock} items available in stock!`);
+        return;
+      }
+      addToCart(product, quantity);
       setSelectedProduct("");
+      setSelectedQuantity("1");
     }
   };
 
-  const addToCart = (product) => {
+  const addToCart = (product: Product, quantityToAdd: number) => {
+    console.log("Adding to cart - Product:", { 
+      id: product.id, 
+      productId: product.productId, 
+      name: product.name 
+    });
+    
     const existingItem = cartItems.find(item => item.id === product.id);
     if (existingItem) {
+      const newQuantity = existingItem.quantity + quantityToAdd;
+      if (newQuantity > product.stock) {
+        alert(`Only ${product.stock} items available in stock!`);
+        return;
+      }
       setCartItems(cartItems.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: newQuantity }
           : item
       ));
     } else {
-      setCartItems([...cartItems, { ...product, quantity: 1 }]);
+      const newCartItem = { ...product, quantity: quantityToAdd };
+      console.log("New cart item created:", { 
+        id: newCartItem.id, 
+        productId: newCartItem.productId, 
+        name: newCartItem.name 
+      });
+      setCartItems([...cartItems, newCartItem]);
     }
   };
 
-  const updateQuantity = (id, quantity) => {
+  const updateQuantity = (id: string, quantity: number) => {
+    const product = products.find(p => p.id === id);
     if (quantity <= 0) {
       removeItem(id);
+    } else if (product && quantity > product.stock) {
+      alert(`Only ${product.stock} items available in stock!`);
     } else {
       setCartItems(cartItems.map(item =>
         item.id === id ? { ...item, quantity } : item
@@ -85,31 +185,78 @@ export default function Sales() {
     }
   };
 
-  const removeItem = (id) => {
+  const removeItem = (id: string) => {
     setCartItems(cartItems.filter(item => item.id !== id));
   };
 
-  const calculateSubtotal = () => {
-    return cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+  const handlePaymentComplete = async (method: "cash" | "card", amountReceived?: number) => {
+    setIsLoading(true);
+    try {
+      // Validate all products still exist and have stock
+      const invalidProducts: string[] = [];
+      const outOfStock: string[] = [];
+      
+      for (const cartItem of cartItems) {
+        const product = products.find(p => p.id === cartItem.id);
+        if (!product) {
+          invalidProducts.push(cartItem.name);
+        } else if (product.stock < cartItem.quantity) {
+          outOfStock.push(`${cartItem.name} (available: ${product.stock}, needed: ${cartItem.quantity})`);
+        }
+      }
+      
+      if (invalidProducts.length > 0) {
+        alert(`The following products are no longer available:\n${invalidProducts.join('\n')}\n\nPlease remove them and try again.`);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (outOfStock.length > 0) {
+        alert(`The following products are out of stock:\n${outOfStock.join('\n')}\n\nPlease adjust quantities and try again.`);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Processing payment with:", {
+        items: cartItems.map(item => ({ 
+          id: item.id, 
+          productId: item.productId, 
+          name: item.name, 
+          quantity: item.quantity 
+        })),
+        method,
+        total: orderSummary.total
+      });
+      
+      const result = await salesApi.createSale({
+        customerName: customer?.name,
+        mobileNumber: customer?.phone,
+        items: cartItems.map(item => ({
+          productId: item.productId, // Use productId instead of id for backend
+          quantity: item.quantity,
+        })),
+        taxPercentage: taxPercentage > 0 ? taxPercentage : undefined,
+        discount: discount > 0 ? discount : undefined,
+        discountType: discount > 0 ? discountType : undefined,
+        paymentMethod: method,
+        amountReceived: method === "cash" ? amountReceived : undefined,
+      });
 
-  const calculateTotal = () => {
-    return calculateSubtotal(); // Add tax/discount logic here if needed
-  };
-
-  const handlePaymentComplete = (method) => {
-    setShowPaymentDialog(false);
-    // Here you would typically save the transaction
-    alert(`Payment completed via ${method}. Bill is ready to print!`);
-  };
-
-  const handlePrintBill = () => {
-    window.print();
+      setSaleData(result.sale);
+      setShowPaymentDialog(false);
+      setShowReceiptDialog(true);
+    } catch (error: any) {
+      console.error("Failed to create sale:", error);
+      const errorMessage = error?.message || "Failed to complete payment. Please try again.";
+      alert(`Payment Failed:\n\n${errorMessage}\n\nPlease check the items and try again.`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCheckout = () => {
     if (cartItems.length === 0) {
-      alert("Cart is empty!");
+      alert("Cart is empty! Please add items to proceed.");
       return;
     }
     setShowPaymentDialog(true);
@@ -118,6 +265,10 @@ export default function Sales() {
   const handleNewSale = () => {
     setCartItems([]);
     setCustomer(null);
+    setSaleData(null);
+    setTaxPercentage(0);
+    setDiscount(0);
+    setDiscountType("percentage");
     setShowCustomerDialog(true);
   };
 
@@ -133,8 +284,15 @@ export default function Sales() {
       <PaymentDialog
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
-        total={calculateTotal()}
+        total={orderSummary.total}
         onPaymentComplete={handlePaymentComplete}
+      />
+
+      <ReceiptDialog
+        open={showReceiptDialog}
+        onOpenChange={setShowReceiptDialog}
+        saleData={saleData}
+        onNewSale={handleNewSale}
       />
 
       {/* Header */}
@@ -194,10 +352,11 @@ export default function Sales() {
                     onChange={(e) => setBarcode(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && addItemByBarcode()}
                     className="pl-10"
+                    disabled={isLoading}
                   />
                 </div>
-                <Button onClick={addItemByBarcode}>
-                  Add
+                <Button onClick={addItemByBarcode} disabled={isLoading || !barcode}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
                 </Button>
               </div>
             </CardContent>
@@ -215,14 +374,28 @@ export default function Sales() {
                     <SelectValue placeholder="Choose a product..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} - Rs. {product.price}
-                      </SelectItem>
-                    ))}
+                    {isLoading ? (
+                      <SelectItem value="loading" disabled>Loading products...</SelectItem>
+                    ) : !Array.isArray(products) || products.length === 0 ? (
+                      <SelectItem value="empty" disabled>No products available</SelectItem>
+                    ) : (
+                      products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name} - Rs. {product.price.toFixed(2)} (Stock: {product.stock})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
-                <Button onClick={addItemBySelect}>
+                <Input
+                  type="number"
+                  min="1"
+                  value={selectedQuantity}
+                  onChange={(e) => setSelectedQuantity(e.target.value)}
+                  placeholder="Qty"
+                  className="w-20"
+                />
+                <Button onClick={addItemBySelect} disabled={!selectedProduct || isLoading}>
                   Add
                 </Button>
               </div>
@@ -243,18 +416,19 @@ export default function Sales() {
                   No items in cart. Scan or select products to add.
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cartItems.map((item) => (
+                <div className="max-h-[500px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cartItems.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>Rs. {item.price}</TableCell>
@@ -295,6 +469,7 @@ export default function Sales() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -307,23 +482,67 @@ export default function Sales() {
               <CardTitle>Order Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Tax and Discount Controls */}
+              <div className="space-y-3 pb-3 border-b">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tax (%)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={taxPercentage}
+                    onChange={(e) => setTaxPercentage(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Discount</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discount}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      className="flex-1"
+                    />
+                    <Select value={discountType} onValueChange={(v: "percentage" | "fixed") => setDiscountType(v)}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">%</SelectItem>
+                        <SelectItem value="fixed">Rs</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Summary */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">Rs. {calculateSubtotal().toFixed(2)}</span>
+                  <span className="font-medium">Rs. {orderSummary.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">Rs. 0.00</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span className="font-medium">Rs. 0.00</span>
-                </div>
+                {orderSummary.tax > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span className="font-medium">Rs. {orderSummary.tax.toFixed(2)}</span>
+                  </div>
+                )}
+                {orderSummary.discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="font-medium text-red-500">- Rs. {orderSummary.discount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t pt-2 flex justify-between">
                   <span className="text-lg font-bold">Total</span>
                   <span className="text-lg font-bold text-primary">
-                    Rs. {calculateTotal().toFixed(2)}
+                    Rs. {orderSummary.total.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -332,18 +551,16 @@ export default function Sales() {
                 <Button
                   onClick={handleCheckout}
                   className="w-full bg-primary hover:bg-primary-hover"
-                  disabled={cartItems.length === 0}
+                  disabled={cartItems.length === 0 || isLoading}
                 >
-                  Checkout
-                </Button>
-                <Button
-                  onClick={handlePrintBill}
-                  variant="outline"
-                  className="w-full"
-                  disabled={cartItems.length === 0}
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Bill
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Checkout"
+                  )}
                 </Button>
               </div>
             </CardContent>
