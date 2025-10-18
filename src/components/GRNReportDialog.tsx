@@ -31,6 +31,7 @@ interface GRNReportDialogProps {
 export function GRNReportDialog({ grnId, grnNumber, isOpen, onClose }: GRNReportDialogProps) {
   const [reportData, setReportData] = useState<GRNReportData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,9 +87,39 @@ export function GRNReportDialog({ grnId, grnNumber, isOpen, onClose }: GRNReport
     window.print();
   };
 
-  const handleDownload = () => {
-    // This could be enhanced to generate a PDF
-    console.log('Download functionality would be implemented here');
+  const handleDownload = async () => {
+    if (!grnId || !reportData) {
+      console.error('No GRN ID or report data available for download');
+      return;
+    }
+
+    try {
+      setDownloadLoading(true);
+      setError(null);
+      
+      // Use the service method to download PDF
+      const blob = await GRNService.downloadGRNReportPDF(grnId);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `GRN-Report-${reportData.grnHeader.grnNumber}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      setError(error instanceof Error ? error.message : 'Failed to download PDF');
+    } finally {
+      setDownloadLoading(false);
+    }
   };
 
   return (
@@ -125,9 +156,18 @@ export function GRNReportDialog({ grnId, grnNumber, isOpen, onClose }: GRNReport
                   </p>
                 </div>
                 <div className="flex gap-2 print:hidden">
-                  <Button variant="outline" size="sm" onClick={handleDownload}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownload}
+                    disabled={downloadLoading || loading}
+                  >
+                    {downloadLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    {downloadLoading ? 'Generating...' : 'Download'}
                   </Button>
                   <Button variant="outline" size="sm" onClick={handlePrint}>
                     <Printer className="h-4 w-4 mr-2" />

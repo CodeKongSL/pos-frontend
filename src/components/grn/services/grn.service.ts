@@ -11,6 +11,7 @@ const GET_COMPLETED_GRNS_COUNT_URL = `${API_BASE_URL}/GetCompletedGRNsCount`;
 const GET_PENDING_GRNS_COUNT_URL = `${API_BASE_URL}/GetPendingGRNsCount`;
 const GET_PARTIAL_RECEIVED_GRNS_COUNT_URL = `${API_BASE_URL}/GetPartialReceivedGRNsCount`;
 const GET_GRN_REPORT_URL = `${API_BASE_URL}/GetGRNReport`;
+const GET_GRN_REPORT_PDF_URL = `${API_BASE_URL}/GetGRNReportPDF`;
 
 export const GRNService = {
   async createGRN(grnData: GRNCreateRequest): Promise<GRN> {
@@ -332,6 +333,35 @@ export const GRNService = {
     } catch (error) {
       console.error('Error fetching GRN report:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch GRN report');
+    }
+  },
+
+  async downloadGRNReportPDF(grnId: string): Promise<Blob> {
+    try {
+      console.log('Downloading GRN report PDF for:', grnId);
+      
+      const url = `${GET_GRN_REPORT_PDF_URL}?grnId=${encodeURIComponent(grnId)}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+
+      console.log('GRN Report PDF Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('GRN Report PDF Server error response:', errorText);
+        throw new Error(`Failed to download GRN report PDF: ${response.status}`);
+      }
+
+      // Return the PDF blob
+      return await response.blob();
+    } catch (error) {
+      console.error('Error downloading GRN report PDF:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to download GRN report PDF');
     }
   }
 };
