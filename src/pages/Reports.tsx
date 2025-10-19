@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Download, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Download, Calendar as CalendarIcon, Clock, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 export default function Reports() {
   const [currentDate] = useState<Date>(new Date());
@@ -11,6 +14,8 @@ export default function Reports() {
     seconds: number;
   }>({ hours: 0, minutes: 0, seconds: 0 });
   const [isExpired, setIsExpired] = useState(false);
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(undefined);
+  const [isRangeReportExpired, setIsRangeReportExpired] = useState(false);
 
   useEffect(() => {
     const calculateTimeRemaining = () => {
@@ -44,6 +49,30 @@ export default function Reports() {
     return () => clearInterval(interval);
   }, []);
 
+  // Check if the selected date's month reports are expired
+  useEffect(() => {
+    if (!selectedStartDate) {
+      setIsRangeReportExpired(false);
+      return;
+    }
+
+    // Get current time in GMT+5:30 (Sri Lanka time)
+    const now = new Date();
+    const sriLankaTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+    
+    // Get the first day of next month from the selected date
+    const selectedMonth = selectedStartDate.getMonth();
+    const selectedYear = selectedStartDate.getFullYear();
+    const nextMonthStart = new Date(selectedYear, selectedMonth + 1, 1, 0, 0, 0, 0);
+    
+    // Check if current time is past the first day of next month
+    if (sriLankaTime >= nextMonthStart) {
+      setIsRangeReportExpired(true);
+    } else {
+      setIsRangeReportExpired(false);
+    }
+  }, [selectedStartDate]);
+
   const handleDownloadReport = () => {
     if (isExpired) {
       alert("The 24-hour download period has expired. Please try again tomorrow.");
@@ -60,6 +89,65 @@ export default function Reports() {
     
     // Open download URL in new window
     window.open(downloadUrl, '_blank');
+  };
+
+  const handleDownloadRangeReport = () => {
+    if (!selectedStartDate) {
+      alert("Please select a start date.");
+      return;
+    }
+
+    if (isRangeReportExpired) {
+      alert("The reports for the selected month have expired. Reports are only available until the 1st of the next month.");
+      return;
+    }
+
+    // Get yesterday's date (since today isn't complete yet)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if selected date is in the future or today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDateOnly = new Date(selectedStartDate);
+    selectedDateOnly.setHours(0, 0, 0, 0);
+    
+    if (selectedDateOnly >= today) {
+      alert("Please select a date from the past. Today's report is not yet complete.");
+      return;
+    }
+
+    // Check if selected date is after yesterday
+    yesterday.setHours(0, 0, 0, 0);
+    if (selectedDateOnly > yesterday) {
+      alert("Please select a date up to yesterday. Reports are only available for completed days.");
+      return;
+    }
+
+    // Format date as YYYY-MM-DD
+    const year = selectedStartDate.getFullYear();
+    const month = String(selectedStartDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedStartDate.getDate()).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${day}`;
+    
+    const downloadUrl = `https://my-go-backend.onrender.com/GetDateRangeReportsPDF?startDate=${formattedDate}`;
+    
+    // Open download URL in new window
+    window.open(downloadUrl, '_blank');
+  };
+
+  // Get yesterday's date for display
+  const getYesterdayDate = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  };
+
+  // Disable future dates and today in the calendar
+  const disabledDates = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date >= today;
   };
 
   return (
@@ -173,6 +261,79 @@ export default function Reports() {
                 Note: Reports are only available for 24 hours from the end of each business day
               </p>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Past Reports Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Download Past Reports
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select a start date to download sales summary from that date until yesterday
+            </p>
+            
+            <div className="flex flex-col items-center gap-4">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-[280px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedStartDate ? (
+                      format(selectedStartDate, "PPP")
+                    ) : (
+                      <span>Pick a start date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedStartDate}
+                    onSelect={setSelectedStartDate}
+                    disabled={disabledDates}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {selectedStartDate && (
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    Report Period: <span className="font-medium text-foreground">
+                      {format(selectedStartDate, "MMMM d, yyyy")} to {format(getYesterdayDate(), "MMMM d, yyyy")}
+                    </span>
+                  </p>
+                  {isRangeReportExpired && (
+                    <p className="text-destructive font-medium mt-2">
+                      Reports for {format(selectedStartDate, "MMMM yyyy")} have expired
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Button 
+                onClick={handleDownloadRangeReport}
+                disabled={!selectedStartDate || isRangeReportExpired}
+                className="bg-primary hover:bg-primary-hover px-6 py-5"
+                size="lg"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Range Report
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Note: Monthly reports are deleted on the 1st of the following month at 00:00:00
+            </p>
           </div>
         </CardContent>
       </Card>
