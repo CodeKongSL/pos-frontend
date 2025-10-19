@@ -1,272 +1,178 @@
-import { BarChart3, TrendingUp, FileText, Download, Calendar, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-const reportTypes = [
-  {
-    id: "1",
-    title: "Sales Report",
-    description: "Daily Summary",
-    type: "Sales",
-    lastGenerated: "Today, 9:30 AM",
-    size: "2.4 MB",
-    format: "PDF"
-  },
-  {
-    id: "2",
-    title: "Profit & Loss Report",
-    description: "This Month",
-    type: "Financial",
-    lastGenerated: "Yesterday, 6:00 PM",
-    size: "1.8 MB",
-    format: "Excel"
-  },
-  {
-    id: "3",
-    title: "Stock Report",
-    description: "Low Stock Items",
-    type: "Inventory",
-    lastGenerated: "Today, 8:15 AM",
-    size: "890 KB",
-    format: "PDF"
-  },
-  {
-    id: "4",
-    title: "GRN Report",
-    description: "Last 30 Days",
-    type: "Procurement",
-    lastGenerated: "2 days ago",
-    size: "3.1 MB",
-    format: "Excel"
-  },
-  {
-    id: "5",
-    title: "Product Performance Report",
-    description: "Top 10 Sellers",
-    type: "Analytics",
-    lastGenerated: "Today, 7:45 AM",
-    size: "1.2 MB",
-    format: "PDF"
-  },
-];
-
-const quickStats = [
-  { label: "Today's Sales", value: "Rs. 12,450.00", change: "+12%", trend: "up" },
-  { label: "Monthly Revenue", value: "Rs. 245,800.00", change: "+8%", trend: "up" },
-  { label: "Profit Margin", value: "18.5%", change: "+2.1%", trend: "up" },
-  { label: "Total Products", value: "156", change: "+5", trend: "up" },
-];
 
 export default function Reports() {
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Sales":
-        return "bg-primary text-primary-foreground";
-      case "Financial":
-        return "bg-accent text-accent-foreground";
-      case "Inventory":
-        return "bg-warning text-warning-foreground";
-      case "Procurement":
-        return "bg-success text-success-foreground";
-      case "Analytics":
-        return "text-muted-foreground";
-      default:
-        return "text-muted-foreground";
+  const [currentDate] = useState<Date>(new Date());
+  const [timeRemaining, setTimeRemaining] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ hours: 0, minutes: 0, seconds: 0 });
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    const calculateTimeRemaining = () => {
+      // Get current time in GMT+5:30 (Sri Lanka time)
+      const now = new Date();
+      const sriLankaTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+      
+      // Set the expiration time to midnight (00:00:00) of the next day in Sri Lanka time
+      const endOfDay = new Date(sriLankaTime);
+      endOfDay.setHours(24, 0, 0, 0);
+      
+      const diff = endOfDay.getTime() - sriLankaTime.getTime();
+      
+      if (diff <= 0) {
+        setIsExpired(true);
+        setTimeRemaining({ hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setTimeRemaining({ hours, minutes, seconds });
+      setIsExpired(false);
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDownloadReport = () => {
+    if (isExpired) {
+      alert("The 24-hour download period has expired. Please try again tomorrow.");
+      return;
     }
+
+    // Format date as YYYY-MM-DD using local date values to avoid timezone issues
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${day}`;
+    
+    const downloadUrl = `https://my-go-backend.onrender.com/GetDailySalesSummaryPDF?date=${formattedDate}`;
+    
+    // Open download URL in new window
+    window.open(downloadUrl, '_blank');
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Reports</h1>
-          <p className="text-muted-foreground mt-1">Generate and view business reports and analytics</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-          <Button className="bg-primary hover:bg-primary-hover">
-            <FileText className="h-4 w-4 mr-2" />
-            Generate Report
-          </Button>
-        </div>
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-foreground">Daily Sales Report</h1>
+        <p className="text-muted-foreground mt-1">Download your daily sales summary report</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        {quickStats.map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Current Date Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Today's Date
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <div className="text-5xl font-bold text-primary mb-2">
+                {currentDate.getDate()}
+              </div>
+              <div className="text-xl font-medium text-foreground">
+                {currentDate.toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                {currentDate.toLocaleDateString('en-US', { 
+                  weekday: 'long' 
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Countdown Timer Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Time Remaining
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Download available for GMT+5:30 timezone
+              </p>
+              <div className="flex justify-center gap-4">
+                <div className="text-center">
+                  <div className={`text-4xl font-bold ${isExpired ? 'text-destructive' : 'text-primary'}`}>
+                    {String(timeRemaining.hours).padStart(2, '0')}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Hours</div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-medium ${stat.trend === 'up' ? 'text-success' : 'text-destructive'}`}>
-                    {stat.change}
-                  </p>
-                  <TrendingUp className={`h-4 w-4 ${stat.trend === 'up' ? 'text-success' : 'text-destructive'}`} />
+                <div className="text-4xl font-bold text-muted-foreground">:</div>
+                <div className="text-center">
+                  <div className={`text-4xl font-bold ${isExpired ? 'text-destructive' : 'text-primary'}`}>
+                    {String(timeRemaining.minutes).padStart(2, '0')}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Minutes</div>
+                </div>
+                <div className="text-4xl font-bold text-muted-foreground">:</div>
+                <div className="text-center">
+                  <div className={`text-4xl font-bold ${isExpired ? 'text-destructive' : 'text-primary'}`}>
+                    {String(timeRemaining.seconds).padStart(2, '0')}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Seconds</div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              {isExpired && (
+                <p className="text-sm text-destructive mt-4 font-medium">
+                  Download period expired. Report unavailable.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Report Filters */}
+      {/* Download Button Card */}
       <Card>
-        <CardHeader>
-          <CardTitle>Report Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+        <CardContent className="pt-6">
+          <div className="text-center space-y-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Report Type
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sales">Sales Reports</SelectItem>
-                  <SelectItem value="financial">Financial Reports</SelectItem>
-                  <SelectItem value="inventory">Inventory Reports</SelectItem>
-                  <SelectItem value="procurement">Procurement Reports</SelectItem>
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground">
+                Report Date: <span className="font-medium text-foreground">
+                  {currentDate.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Date Range
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="quarter">This Quarter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Format
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="csv">CSV</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button className="w-full bg-primary hover:bg-primary-hover">
-                Generate Report
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Reports */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {reportTypes.map((report) => (
-              <Card key={report.id} className="border border-border hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Badge className={getTypeColor(report.type)}>
-                      {report.type}
-                    </Badge>
-                    <div className="flex gap-1">
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{report.title}</h3>
-                    <p className="text-sm text-muted-foreground">{report.description}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Last Generated</p>
-                      <p className="font-medium">{report.lastGenerated}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Size</p>
-                      <p className="font-medium">{report.size}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline">{report.format}</Badge>
-                    <Button variant="outline" size="sm">
-                      <BarChart3 className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Report Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Button variant="outline" className="h-auto p-4 justify-start">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-md bg-primary/10">
-                  <Calendar className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium">Schedule Reports</p>
-                  <p className="text-sm text-muted-foreground">Set up automatic report generation</p>
-                </div>
-              </div>
+            <Button 
+              onClick={handleDownloadReport}
+              disabled={isExpired}
+              className="bg-primary hover:bg-primary-hover px-8 py-6 text-lg"
+              size="lg"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Download Daily Sales Report
             </Button>
-            <Button variant="outline" className="h-auto p-4 justify-start">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-md bg-accent/10">
-                  <TrendingUp className="h-5 w-5 text-accent" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium">Analytics Dashboard</p>
-                  <p className="text-sm text-muted-foreground">View interactive business analytics</p>
-                </div>
-              </div>
-            </Button>
+            {!isExpired && (
+              <p className="text-xs text-muted-foreground">
+                Note: Reports are only available for 24 hours from the end of each business day
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
