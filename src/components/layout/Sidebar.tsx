@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  Repeat
+  Repeat,
+  Boxes
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Categories", href: "/categories", icon: FolderOpen },
   { name: "Brands", href: "/brands", icon: Tag },
   { name: "Suppliers", href: "/suppliers", icon: Users },
+  { name: "Stocks", href: "/stocks", icon: Boxes },
   { name: "Customer Returns", href: "/returns", icon: Repeat },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
