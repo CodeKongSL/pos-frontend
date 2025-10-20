@@ -5,6 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://my-go-backend.onre
 
 const FIND_ALL_STOCKS_URL = `${API_BASE_URL}/FindAllStocks`;
 const FIND_ALL_STOCKS_LITE_URL = `${API_BASE_URL}/FindAllStocksLite`;
+const GET_TOTAL_STOCK_QUANTITY_URL = `${API_BASE_URL}/GetTotalStockQuantity`;
 
 const CACHE_KEY = 'stock_metrics_cache';
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
@@ -96,6 +97,25 @@ export const StockService = {
     } catch (error) {
       console.error('Error fetching stock metrics:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch stock metrics');
+    }
+  },
+
+  /**
+   * Fetch total stock quantity from dedicated endpoint
+   */
+  async getTotalStockQuantity(): Promise<number> {
+    try {
+      const response = await fetch(GET_TOTAL_STOCK_QUANTITY_URL);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch total stock quantity');
+      }
+      
+      const data = await response.json();
+      return data.total_stock_quantity || 0;
+    } catch (error) {
+      console.error('Error fetching total stock quantity:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch total stock quantity');
     }
   },
 

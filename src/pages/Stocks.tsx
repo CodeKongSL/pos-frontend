@@ -28,6 +28,7 @@ export default function Stocks() {
   const [lowStockCount, setLowStockCount] = useState<number>(0);
   const [outOfStockCount, setOutOfStockCount] = useState<number>(0);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
+  const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -84,6 +85,9 @@ export default function Stocks() {
       // No cache: fetch metrics from /FindAllStocks
       fetchStockMetrics();
     }
+    
+    // Always fetch total stock quantity from dedicated endpoint
+    fetchTotalStockQuantity();
     
     // Always fetch first page of stocks
     fetchStocks(null, true);
@@ -143,6 +147,20 @@ export default function Stocks() {
     }
   };
 
+  // Fetch total stock quantity from dedicated endpoint
+  const fetchTotalStockQuantity = async () => {
+    setIsLoadingTotalQty(true);
+    try {
+      const totalQty = await StockService.getTotalStockQuantity();
+      setTotalStockQty(totalQty);
+    } catch (error) {
+      console.error('Error fetching total stock quantity:', error);
+      // Don't update error state here, as this is a background fetch
+    } finally {
+      setIsLoadingTotalQty(false);
+    }
+  };
+
   // Handle refresh (including metrics)
   const handleRefresh = () => {
     fetchStocks(currentCursor);
@@ -151,6 +169,7 @@ export default function Stocks() {
   // Handle metrics refresh
   const handleRefreshMetrics = () => {
     fetchStockMetrics();
+    fetchTotalStockQuantity();
   };
 
   // Load cached metrics on mount
@@ -158,7 +177,6 @@ export default function Stocks() {
     const cached = StockService.getCachedMetrics();
     if (cached) {
       setTotalItems(cached.totalItems);
-      setTotalStockQty(cached.totalStockQty);
       setLowStockCount(cached.lowStockCount);
       setOutOfStockCount(cached.outOfStockCount);
       setIsLoadingMetrics(false);
@@ -172,11 +190,10 @@ export default function Stocks() {
       const metrics = await StockService.getStockMetrics();
       
       setTotalItems(metrics.totalItems);
-      setTotalStockQty(metrics.totalStockQty);
       setLowStockCount(metrics.lowStockCount);
       setOutOfStockCount(metrics.outOfStockCount);
       
-      // Cache the metrics
+      // Cache the metrics (excluding totalStockQty since it comes from a different endpoint)
       StockService.setCachedMetrics(metrics);
       
     } catch (error) {
@@ -260,7 +277,7 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                {isLoadingMetrics ? (
+                {isLoadingTotalQty ? (
                   <div className="w-16 h-8 bg-muted animate-pulse rounded" />
                 ) : (
                   <p className="text-2xl font-bold text-success">{totalStockQty}</p>
