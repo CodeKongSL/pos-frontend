@@ -26,9 +26,10 @@ export default function Stocks() {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalStockQty, setTotalStockQty] = useState<number>(0);
   const [lowStockCount, setLowStockCount] = useState<number>(0);
-  const [outOfStockCount, setOutOfStockCount] = useState<number>(0);
+  const [averageStockCount, setAverageStockCount] = useState<number>(0);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
   const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
+  const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -79,12 +80,8 @@ export default function Stocks() {
 
   // Initial load: fetch metrics (with cache check) + first page
   useEffect(() => {
-    // Check if we have cached metrics
-    const cached = StockService.getCachedMetrics();
-    if (!cached) {
-      // No cache: fetch metrics from /FindAllStocks
-      fetchStockMetrics();
-    }
+    // Fetch stock status counts from dedicated endpoint
+    fetchStockStatusCounts();
     
     // Always fetch total stock quantity from dedicated endpoint
     fetchTotalStockQuantity();
@@ -161,6 +158,22 @@ export default function Stocks() {
     }
   };
 
+  // Fetch stock status counts from dedicated endpoint
+  const fetchStockStatusCounts = async () => {
+    setIsLoadingStatusCounts(true);
+    try {
+      const counts = await StockService.getStockStatusCounts();
+      setTotalItems(counts.total);
+      setLowStockCount(counts.lowStock);
+      setAverageStockCount(counts.averageStock);
+    } catch (error) {
+      console.error('Error fetching stock status counts:', error);
+      // Don't update error state here, as this is a background fetch
+    } finally {
+      setIsLoadingStatusCounts(false);
+    }
+  };
+
   // Handle refresh (including metrics)
   const handleRefresh = () => {
     fetchStocks(currentCursor);
@@ -168,40 +181,8 @@ export default function Stocks() {
 
   // Handle metrics refresh
   const handleRefreshMetrics = () => {
-    fetchStockMetrics();
+    fetchStockStatusCounts();
     fetchTotalStockQuantity();
-  };
-
-  // Load cached metrics on mount
-  useEffect(() => {
-    const cached = StockService.getCachedMetrics();
-    if (cached) {
-      setTotalItems(cached.totalItems);
-      setLowStockCount(cached.lowStockCount);
-      setOutOfStockCount(cached.outOfStockCount);
-      setIsLoadingMetrics(false);
-    }
-  }, []);
-
-  // Fetch metrics from /FindAllStocks (with count)
-  const fetchStockMetrics = async () => {
-    setIsLoadingMetrics(true);
-    try {
-      const metrics = await StockService.getStockMetrics();
-      
-      setTotalItems(metrics.totalItems);
-      setLowStockCount(metrics.lowStockCount);
-      setOutOfStockCount(metrics.outOfStockCount);
-      
-      // Cache the metrics (excluding totalStockQty since it comes from a different endpoint)
-      StockService.setCachedMetrics(metrics);
-      
-    } catch (error) {
-      console.error('Error fetching stock metrics:', error);
-      // Don't update error state here, as this is a background fetch
-    } finally {
-      setIsLoadingMetrics(false);
-    }
   };
 
   const filteredStocks = stocks.filter(stock =>
@@ -248,10 +229,10 @@ export default function Stocks() {
           variant="outline"
           size="sm"
           onClick={handleRefreshMetrics}
-          disabled={isLoadingMetrics}
+          disabled={isLoadingStatusCounts || isLoadingTotalQty}
           title="Refresh stock statistics"
         >
-          <RefreshCcw className={`h-4 w-4 mr-2 ${isLoadingMetrics ? 'animate-spin' : ''}`} />
+          <RefreshCcw className={`h-4 w-4 mr-2 ${isLoadingStatusCounts || isLoadingTotalQty ? 'animate-spin' : ''}`} />
           Refresh Stats
         </Button>
       </div>
@@ -262,7 +243,7 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                {isLoadingMetrics ? (
+                {isLoadingStatusCounts ? (
                   <div className="w-16 h-8 bg-muted animate-pulse rounded" />
                 ) : (
                   <p className="text-2xl font-bold text-foreground">{totalItems}</p>
@@ -292,7 +273,7 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                {isLoadingMetrics ? (
+                {isLoadingStatusCounts ? (
                   <div className="w-16 h-8 bg-muted animate-pulse rounded" />
                 ) : (
                   <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
@@ -307,14 +288,14 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                {isLoadingMetrics ? (
+                {isLoadingStatusCounts ? (
                   <div className="w-16 h-8 bg-muted animate-pulse rounded" />
                 ) : (
-                  <p className="text-2xl font-bold text-destructive">{outOfStockCount}</p>
+                  <p className="text-2xl font-bold text-blue-500">{averageStockCount}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Out of Stock</p>
+                <p className="text-sm text-muted-foreground">Average Stock</p>
               </div>
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <Package className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://my-go-backend.onre
 const FIND_ALL_STOCKS_URL = `${API_BASE_URL}/FindAllStocks`;
 const FIND_ALL_STOCKS_LITE_URL = `${API_BASE_URL}/FindAllStocksLite`;
 const GET_TOTAL_STOCK_QUANTITY_URL = `${API_BASE_URL}/GetTotalStockQuantity`;
+const GET_STOCK_STATUS_COUNTS_URL = `${API_BASE_URL}/GetStockStatusCounts`;
 
 const CACHE_KEY = 'stock_metrics_cache';
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
@@ -116,6 +117,33 @@ export const StockService = {
     } catch (error) {
       console.error('Error fetching total stock quantity:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch total stock quantity');
+    }
+  },
+
+  /**
+   * Fetch stock status counts from dedicated endpoint
+   */
+  async getStockStatusCounts(): Promise<{
+    total: number;
+    lowStock: number;
+    averageStock: number;
+  }> {
+    try {
+      const response = await fetch(GET_STOCK_STATUS_COUNTS_URL);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock status counts');
+      }
+      
+      const data = await response.json();
+      return {
+        total: data.total || 0,
+        lowStock: data.low_stock || 0,
+        averageStock: data.average_stock || 0
+      };
+    } catch (error) {
+      console.error('Error fetching stock status counts:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch stock status counts');
     }
   },
 
