@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,28 +13,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface Stock {
-  id: string;
-  productId: string;
-  name: string;
-  stockQty: number;
-  expiry_date: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PaginatedStockResponse {
-  data: Stock[];
-  next_cursor?: string;
-  has_more: boolean;
-}
+import { Stock } from "@/components/stock/models/stock.model";
+import { StockService } from "@/components/stock/services/stock.service";
 
 export default function Stocks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'low' | 'average'>('all');
+
+  // Cached metrics state
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalStockQty, setTotalStockQty] = useState<number>(0);
+  const [lowStockCount, setLowStockCount] = useState<number>(0);
+  const [averageStockCount, setAverageStockCount] = useState<number>(0);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
+  const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
+  const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -49,25 +45,20 @@ export default function Stocks() {
     setError(null);
     
     try {
-      const params = new URLSearchParams({
-        per_page: perPage.toString(),
-      });
+      const params = {
+        per_page: perPage,
+        cursor: (!resetPagination && cursor) ? cursor : undefined,
+      };
       
-      if (!resetPagination && cursor) {
-        params.append('cursor', cursor);
-      }
+      let data: any;
       
-      const response = await fetch(`https://my-go-backend.onrender.com/FindAllStocksLite?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stocks');
-      }
-      
-      const data: PaginatedStockResponse = await response.json();
-      
-      // Validate response structure
-      if (!data || !Array.isArray(data.data)) {
-        throw new Error('Invalid response structure');
+      // Choose the appropriate API based on filter
+      if (statusFilter === 'low') {
+        data = await StockService.getFilteredStocks('low', params);
+      } else if (statusFilter === 'average') {
+        data = await StockService.getFilteredStocks('average', params);
+      } else {
+        data = await StockService.getAllStocksLite(params);
       }
       
       setStocks(data.data);
@@ -97,9 +88,22 @@ export default function Stocks() {
     }
   };
 
+  // Initial load: fetch metrics (with cache check) + first page
   useEffect(() => {
+    // Fetch stock status counts from dedicated endpoint
+    fetchStockStatusCounts();
+    
+    // Always fetch total stock quantity from dedicated endpoint
+    fetchTotalStockQuantity();
+    
+    // Always fetch first page of stocks
     fetchStocks(null, true);
   }, []);
+
+  // Re-fetch stocks when filter or perPage changes
+  useEffect(() => {
+    fetchStocks(null, true);
+  }, [statusFilter]);
 
   // Handle per page change
   const handlePerPageChange = async (value: string) => {
@@ -110,21 +114,7 @@ export default function Stocks() {
     setError(null);
     
     try {
-      const params = new URLSearchParams({
-        per_page: newPerPage.toString(),
-      });
-      
-      const response = await fetch(`https://my-go-backend.onrender.com/FindAllStocksLite?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stocks');
-      }
-      
-      const data: PaginatedStockResponse = await response.json();
-      
-      if (!data || !Array.isArray(data.data)) {
-        throw new Error('Invalid response structure');
-      }
+      const data = await StockService.getAllStocksLite({ per_page: newPerPage });
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -169,9 +159,55 @@ export default function Stocks() {
     }
   };
 
-  // Handle refresh
+  // Fetch total stock quantity from dedicated endpoint
+  const fetchTotalStockQuantity = async () => {
+    setIsLoadingTotalQty(true);
+    try {
+      const totalQty = await StockService.getTotalStockQuantity();
+      setTotalStockQty(totalQty);
+    } catch (error) {
+      console.error('Error fetching total stock quantity:', error);
+      // Don't update error state here, as this is a background fetch
+    } finally {
+      setIsLoadingTotalQty(false);
+    }
+  };
+
+  // Fetch stock status counts from dedicated endpoint
+  const fetchStockStatusCounts = async () => {
+    setIsLoadingStatusCounts(true);
+    try {
+      const counts = await StockService.getStockStatusCounts();
+      setTotalItems(counts.total);
+      setLowStockCount(counts.lowStock);
+      setAverageStockCount(counts.averageStock);
+    } catch (error) {
+      console.error('Error fetching stock status counts:', error);
+      // Don't update error state here, as this is a background fetch
+    } finally {
+      setIsLoadingStatusCounts(false);
+    }
+  };
+
+  // Handle refresh (including metrics)
   const handleRefresh = () => {
     fetchStocks(currentCursor);
+  };
+
+  // Handle metrics refresh
+  const handleRefreshMetrics = () => {
+    fetchStockStatusCounts();
+    fetchTotalStockQuantity();
+  };
+
+  // Handle status filter click
+  const handleStatusFilterClick = (filter: 'all' | 'low' | 'average') => {
+    if (statusFilter === filter) {
+      // If clicking the same filter, reset to 'all'
+      setStatusFilter('all');
+    } else {
+      setStatusFilter(filter);
+    }
   };
 
   const filteredStocks = stocks.filter(stock =>
@@ -179,34 +215,32 @@ export default function Stocks() {
     stock.productId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStockStatusBadge = (stockQty: number) => {
-    if (stockQty === 0) return <Badge variant="destructive">Out of Stock</Badge>;
-    if (stockQty < 10) return <Badge variant="outline" className="text-warning border-warning">Low Stock</Badge>;
-    if (stockQty < 50) return <Badge className="bg-blue-500 text-white">Medium Stock</Badge>;
-    return <Badge className="bg-success text-success-foreground">Good Stock</Badge>;
+  const getStockStatusBadge = (status: string) => {
+    switch (status) {
+      case "Out of Stock":
+        return <Badge variant="destructive">Out of Stock</Badge>;
+      case "Low Stock":
+        return <Badge variant="outline" className="text-warning border-warning">Low Stock</Badge>;
+      case "Medium Stock":
+        return <Badge className="bg-blue-500 text-white">Medium Stock</Badge>;
+      case "Good Stock":
+        return <Badge className="bg-success text-success-foreground">Good Stock</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return StockService.formatDate(dateString);
   };
 
   const isExpiringSoon = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    const daysUntilExpiry = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+    return StockService.isExpiringSoon(expiryDate);
   };
 
   const isExpired = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    return expiry < today;
+    return StockService.isExpired(expiryDate);
   };
-
-  const totalStockQty = stocks.reduce((sum, stock) => sum + stock.stockQty, 0);
-  const lowStockCount = stocks.filter(stock => stock.stockQty < 10 && stock.stockQty > 0).length;
-  const outOfStockCount = stocks.filter(stock => stock.stockQty === 0).length;
 
   return (
     <div className="space-y-6">
@@ -216,6 +250,16 @@ export default function Stocks() {
           <h1 className="text-3xl font-bold text-foreground">Stock Management</h1>
           <p className="text-muted-foreground mt-1">View and monitor your inventory stock levels</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefreshMetrics}
+          disabled={isLoadingStatusCounts || isLoadingTotalQty}
+          title="Refresh stock statistics"
+        >
+          <RefreshCcw className={`h-4 w-4 mr-2 ${isLoadingStatusCounts || isLoadingTotalQty ? 'animate-spin' : ''}`} />
+          Refresh Stats
+        </Button>
       </div>
 
       {/* Stats */}
@@ -224,7 +268,11 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-foreground">{stocks.length}</p>
+                {isLoadingStatusCounts ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{totalItems}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Total Items</p>
               </div>
               <Package className="h-8 w-8 text-primary" />
@@ -235,32 +283,54 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">{totalStockQty}</p>
+                {isLoadingTotalQty ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-success">{totalStockQty}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Total Quantity</p>
               </div>
               <Package className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-lg ${statusFilter === 'low' ? 'ring-2 ring-warning' : ''}`}
+          onClick={() => handleStatusFilterClick('low')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
-                <p className="text-sm text-muted-foreground">Low Stock</p>
+                {isLoadingStatusCounts ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Low Stock {statusFilter === 'low' && '(Filtered)'}
+                </p>
               </div>
               <AlertCircle className="h-8 w-8 text-warning" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-lg ${statusFilter === 'average' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => handleStatusFilterClick('average')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-destructive">{outOfStockCount}</p>
-                <p className="text-sm text-muted-foreground">Out of Stock</p>
+                {isLoadingStatusCounts ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-blue-500">{averageStockCount}</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Average Stock {statusFilter === 'average' && '(Filtered)'}
+                </p>
               </div>
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <Package className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -269,28 +339,55 @@ export default function Stocks() {
       {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search stocks by name or product ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Show:</span>
-              <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col gap-4">
+            {/* Active Filter Indicator */}
+            {statusFilter !== 'all' && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+                <Badge variant="outline" className={`
+                  ${statusFilter === 'low' ? 'border-warning text-warning' : ''}
+                  ${statusFilter === 'average' ? 'border-blue-500 text-blue-500' : ''}
+                `}>
+                  {statusFilter === 'low' ? 'Low Stock Filter' : 'Average Stock Filter'}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Showing {statusFilter === 'low' ? 'low stock' : 'average stock'} items only
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStatusFilter('all')}
+                  className="ml-auto h-7"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear Filter
+                </Button>
+              </div>
+            )}
+            
+            {/* Search and Per Page */}
+            <div className="flex gap-4 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search stocks by name or product ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show:</span>
+                <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -300,7 +397,8 @@ export default function Stocks() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Available Stocks ({filteredStocks.length} on this page)
+            {statusFilter === 'low' ? 'Low Stock Items' : statusFilter === 'average' ? 'Average Stock Items' : 'Available Stocks'} 
+            ({filteredStocks.length} on this page)
             {currentPage > 1 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 - Page {currentPage}
@@ -404,7 +502,7 @@ export default function Stocks() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{getStockStatusBadge(stock.stockQty)}</TableCell>
+                    <TableCell>{getStockStatusBadge(stock.status)}</TableCell>
                     <TableCell>{formatDate(stock.created_at)}</TableCell>
                     <TableCell>{formatDate(stock.updated_at)}</TableCell>
                   </TableRow>
