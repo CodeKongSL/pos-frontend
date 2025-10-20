@@ -13,37 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface Stock {
-  id: string;
-  productId: string;
-  name: string;
-  stockQty: number;
-  expiry_date: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PaginatedStockResponse {
-  data: Stock[];
-  next_cursor?: string;
-  has_more: boolean;
-  total_count?: number; // Total count from /FindAllStocks
-  total_stock_qty?: number; // Aggregate quantity
-  low_stock_count?: number; // Items with qty < 10
-  out_of_stock_count?: number; // Items with qty = 0
-}
-
-interface CachedStockMetrics {
-  totalItems: number;
-  totalStockQty: number;
-  lowStockCount: number;
-  outOfStockCount: number;
-  timestamp: number;
-}
-
-const CACHE_KEY = 'stock_metrics_cache';
-const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
+import { Stock } from "@/components/stock/models/stock.model";
+import { StockService } from "@/components/stock/services/stock.service";
 
 export default function Stocks() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,27 +42,12 @@ export default function Stocks() {
     setError(null);
     
     try {
-      const params = new URLSearchParams({
-        per_page: perPage.toString(),
-      });
+      const params = {
+        per_page: perPage,
+        cursor: (!resetPagination && cursor) ? cursor : undefined,
+      };
       
-      if (!resetPagination && cursor) {
-        params.append('cursor', cursor);
-      }
-      
-      // Use /FindAllStocksLite for pagination (faster, no count query)
-      const response = await fetch(`https://my-go-backend.onrender.com/FindAllStocksLite?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stocks');
-      }
-      
-      const data: PaginatedStockResponse = await response.json();
-      
-      // Validate response structure
-      if (!data || !Array.isArray(data.data)) {
-        throw new Error('Invalid response structure');
-      }
+      const data = await StockService.getAllStocksLite(params);
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -123,7 +79,7 @@ export default function Stocks() {
   // Initial load: fetch metrics (with cache check) + first page
   useEffect(() => {
     // Check if we have cached metrics
-    const cached = getCachedMetrics();
+    const cached = StockService.getCachedMetrics();
     if (!cached) {
       // No cache: fetch metrics from /FindAllStocks
       fetchStockMetrics();
@@ -142,21 +98,7 @@ export default function Stocks() {
     setError(null);
     
     try {
-      const params = new URLSearchParams({
-        per_page: newPerPage.toString(),
-      });
-      
-      const response = await fetch(`https://my-go-backend.onrender.com/FindAllStocksLite?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stocks');
-      }
-      
-      const data: PaginatedStockResponse = await response.json();
-      
-      if (!data || !Array.isArray(data.data)) {
-        throw new Error('Invalid response structure');
-      }
+      const data = await StockService.getAllStocksLite({ per_page: newPerPage });
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -211,44 +153,9 @@ export default function Stocks() {
     fetchStockMetrics();
   };
 
-  // Cache management functions
-  const getCachedMetrics = (): CachedStockMetrics | null => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (!cached) return null;
-      
-      const metrics: CachedStockMetrics = JSON.parse(cached);
-      const now = Date.now();
-      
-      // Check if cache is still valid
-      if (now - metrics.timestamp < CACHE_DURATION) {
-        return metrics;
-      }
-      
-      // Cache expired
-      localStorage.removeItem(CACHE_KEY);
-      return null;
-    } catch (error) {
-      console.error('Error reading cache:', error);
-      return null;
-    }
-  };
-
-  const setCachedMetrics = (metrics: Omit<CachedStockMetrics, 'timestamp'>) => {
-    try {
-      const cacheData: CachedStockMetrics = {
-        ...metrics,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Error setting cache:', error);
-    }
-  };
-
   // Load cached metrics on mount
   useEffect(() => {
-    const cached = getCachedMetrics();
+    const cached = StockService.getCachedMetrics();
     if (cached) {
       setTotalItems(cached.totalItems);
       setTotalStockQty(cached.totalStockQty);
@@ -262,21 +169,7 @@ export default function Stocks() {
   const fetchStockMetrics = async () => {
     setIsLoadingMetrics(true);
     try {
-      const response = await fetch('https://my-go-backend.onrender.com/FindAllStocks?per_page=1');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stock metrics');
-      }
-      
-      const data: PaginatedStockResponse = await response.json();
-      
-      // Update metrics from response
-      const metrics = {
-        totalItems: data.total_count || 0,
-        totalStockQty: data.total_stock_qty || 0,
-        lowStockCount: data.low_stock_count || 0,
-        outOfStockCount: data.out_of_stock_count || 0
-      };
+      const metrics = await StockService.getStockMetrics();
       
       setTotalItems(metrics.totalItems);
       setTotalStockQty(metrics.totalStockQty);
@@ -284,7 +177,7 @@ export default function Stocks() {
       setOutOfStockCount(metrics.outOfStockCount);
       
       // Cache the metrics
-      setCachedMetrics(metrics);
+      StockService.setCachedMetrics(metrics);
       
     } catch (error) {
       console.error('Error fetching stock metrics:', error);
@@ -299,29 +192,31 @@ export default function Stocks() {
     stock.productId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStockStatusBadge = (stockQty: number) => {
-    if (stockQty === 0) return <Badge variant="destructive">Out of Stock</Badge>;
-    if (stockQty < 10) return <Badge variant="outline" className="text-warning border-warning">Low Stock</Badge>;
-    if (stockQty < 50) return <Badge className="bg-blue-500 text-white">Medium Stock</Badge>;
-    return <Badge className="bg-success text-success-foreground">Good Stock</Badge>;
+  const getStockStatusBadge = (status: string) => {
+    switch (status) {
+      case "Out of Stock":
+        return <Badge variant="destructive">Out of Stock</Badge>;
+      case "Low Stock":
+        return <Badge variant="outline" className="text-warning border-warning">Low Stock</Badge>;
+      case "Medium Stock":
+        return <Badge className="bg-blue-500 text-white">Medium Stock</Badge>;
+      case "Good Stock":
+        return <Badge className="bg-success text-success-foreground">Good Stock</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return StockService.formatDate(dateString);
   };
 
   const isExpiringSoon = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    const daysUntilExpiry = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+    return StockService.isExpiringSoon(expiryDate);
   };
 
   const isExpired = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    return expiry < today;
+    return StockService.isExpired(expiryDate);
   };
 
   return (
@@ -546,7 +441,7 @@ export default function Stocks() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{getStockStatusBadge(stock.stockQty)}</TableCell>
+                    <TableCell>{getStockStatusBadge(stock.status)}</TableCell>
                     <TableCell>{formatDate(stock.created_at)}</TableCell>
                     <TableCell>{formatDate(stock.updated_at)}</TableCell>
                   </TableRow>
