@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ export default function Stocks() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'low' | 'average'>('all');
 
   // Cached metrics state
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -49,7 +50,16 @@ export default function Stocks() {
         cursor: (!resetPagination && cursor) ? cursor : undefined,
       };
       
-      const data = await StockService.getAllStocksLite(params);
+      let data: any;
+      
+      // Choose the appropriate API based on filter
+      if (statusFilter === 'low') {
+        data = await StockService.getFilteredStocks('low', params);
+      } else if (statusFilter === 'average') {
+        data = await StockService.getFilteredStocks('average', params);
+      } else {
+        data = await StockService.getAllStocksLite(params);
+      }
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -89,6 +99,11 @@ export default function Stocks() {
     // Always fetch first page of stocks
     fetchStocks(null, true);
   }, []);
+
+  // Re-fetch stocks when filter or perPage changes
+  useEffect(() => {
+    fetchStocks(null, true);
+  }, [statusFilter]);
 
   // Handle per page change
   const handlePerPageChange = async (value: string) => {
@@ -185,6 +200,16 @@ export default function Stocks() {
     fetchTotalStockQuantity();
   };
 
+  // Handle status filter click
+  const handleStatusFilterClick = (filter: 'all' | 'low' | 'average') => {
+    if (statusFilter === filter) {
+      // If clicking the same filter, reset to 'all'
+      setStatusFilter('all');
+    } else {
+      setStatusFilter(filter);
+    }
+  };
+
   const filteredStocks = stocks.filter(stock =>
     stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     stock.productId.toLowerCase().includes(searchTerm.toLowerCase())
@@ -269,7 +294,10 @@ export default function Stocks() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-lg ${statusFilter === 'low' ? 'ring-2 ring-warning' : ''}`}
+          onClick={() => handleStatusFilterClick('low')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -278,13 +306,18 @@ export default function Stocks() {
                 ) : (
                   <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Low Stock</p>
+                <p className="text-sm text-muted-foreground">
+                  Low Stock {statusFilter === 'low' && '(Filtered)'}
+                </p>
               </div>
               <AlertCircle className="h-8 w-8 text-warning" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-lg ${statusFilter === 'average' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => handleStatusFilterClick('average')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -293,7 +326,9 @@ export default function Stocks() {
                 ) : (
                   <p className="text-2xl font-bold text-blue-500">{averageStockCount}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Average Stock</p>
+                <p className="text-sm text-muted-foreground">
+                  Average Stock {statusFilter === 'average' && '(Filtered)'}
+                </p>
               </div>
               <Package className="h-8 w-8 text-blue-500" />
             </div>
@@ -304,28 +339,55 @@ export default function Stocks() {
       {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search stocks by name or product ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Show:</span>
-              <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col gap-4">
+            {/* Active Filter Indicator */}
+            {statusFilter !== 'all' && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+                <Badge variant="outline" className={`
+                  ${statusFilter === 'low' ? 'border-warning text-warning' : ''}
+                  ${statusFilter === 'average' ? 'border-blue-500 text-blue-500' : ''}
+                `}>
+                  {statusFilter === 'low' ? 'Low Stock Filter' : 'Average Stock Filter'}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Showing {statusFilter === 'low' ? 'low stock' : 'average stock'} items only
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStatusFilter('all')}
+                  className="ml-auto h-7"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear Filter
+                </Button>
+              </div>
+            )}
+            
+            {/* Search and Per Page */}
+            <div className="flex gap-4 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search stocks by name or product ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show:</span>
+                <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -335,7 +397,8 @@ export default function Stocks() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Available Stocks ({filteredStocks.length} on this page)
+            {statusFilter === 'low' ? 'Low Stock Items' : statusFilter === 'average' ? 'Average Stock Items' : 'Available Stocks'} 
+            ({filteredStocks.length} on this page)
             {currentPage > 1 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 - Page {currentPage}

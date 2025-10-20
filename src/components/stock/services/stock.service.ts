@@ -5,6 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://my-go-backend.onre
 
 const FIND_ALL_STOCKS_URL = `${API_BASE_URL}/FindAllStocks`;
 const FIND_ALL_STOCKS_LITE_URL = `${API_BASE_URL}/FindAllStocksLite`;
+const FIND_ALL_STOCKS_FILTERED_URL = `${API_BASE_URL}/FindAllStocksFiltered`;
 const GET_TOTAL_STOCK_QUANTITY_URL = `${API_BASE_URL}/GetTotalStockQuantity`;
 const GET_STOCK_STATUS_COUNTS_URL = `${API_BASE_URL}/GetStockStatusCounts`;
 
@@ -67,6 +68,65 @@ export const StockService = {
     } catch (error) {
       console.error('Error fetching stocks (lite):', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch stocks');
+    }
+  },
+
+  /**
+   * Fetch filtered stocks by status with pagination
+   */
+  async getFilteredStocks(status: 'low' | 'average', params?: StockPaginationParams): Promise<PaginatedStockResponse> {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      // Add status filter
+      queryParams.append('status', status);
+      
+      if (params?.per_page) {
+        queryParams.append('per_page', params.per_page.toString());
+      } else {
+        queryParams.append('per_page', '15'); // Default to 15
+      }
+      
+      // Only add cursor if it's provided and not null/empty
+      if (params?.cursor && params.cursor.trim() !== '') {
+        queryParams.append('cursor', params.cursor);
+      }
+      
+      const url = `${FIND_ALL_STOCKS_FILTERED_URL}?${queryParams.toString()}`;
+      console.log('🌐 Making filtered API request to:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 Response status:', response.status);
+      console.log('📋 Response ok:', response.ok);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error Response:', errorText);
+        throw new Error(`Failed to fetch filtered stocks: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Raw filtered API response:', data);
+      
+      // Validate response structure
+      if (!data || !Array.isArray(data.data)) {
+        console.error('Invalid response structure:', data);
+        throw new Error('Invalid response structure');
+      }
+      
+      const paginatedResponse: PaginatedStockResponse = {
+        data: data.data || [],
+        next_cursor: data.next_cursor || null,
+        has_more: data.has_more || false
+      };
+      
+      console.log('Final filtered paginated response:', paginatedResponse);
+      console.log('Final filtered stocks count:', paginatedResponse.data.length);
+      return paginatedResponse;
+    } catch (error) {
+      console.error('Error fetching filtered stocks:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch filtered stocks');
     }
   },
 
