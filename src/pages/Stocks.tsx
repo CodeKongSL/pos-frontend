@@ -28,13 +28,35 @@ interface PaginatedStockResponse {
   data: Stock[];
   next_cursor?: string;
   has_more: boolean;
+  total_count?: number; // Total count from /FindAllStocks
+  total_stock_qty?: number; // Aggregate quantity
+  low_stock_count?: number; // Items with qty < 10
+  out_of_stock_count?: number; // Items with qty = 0
 }
+
+interface CachedStockMetrics {
+  totalItems: number;
+  totalStockQty: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  timestamp: number;
+}
+
+const CACHE_KEY = 'stock_metrics_cache';
+const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 
 export default function Stocks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Cached metrics state
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalStockQty, setTotalStockQty] = useState<number>(0);
+  const [lowStockCount, setLowStockCount] = useState<number>(0);
+  const [outOfStockCount, setOutOfStockCount] = useState<number>(0);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -57,6 +79,7 @@ export default function Stocks() {
         params.append('cursor', cursor);
       }
       
+      // Use /FindAllStocksLite for pagination (faster, no count query)
       const response = await fetch(`https://my-go-backend.onrender.com/FindAllStocksLite?${params.toString()}`);
       
       if (!response.ok) {
@@ -97,7 +120,16 @@ export default function Stocks() {
     }
   };
 
+  // Initial load: fetch metrics (with cache check) + first page
   useEffect(() => {
+    // Check if we have cached metrics
+    const cached = getCachedMetrics();
+    if (!cached) {
+      // No cache: fetch metrics from /FindAllStocks
+      fetchStockMetrics();
+    }
+    
+    // Always fetch first page of stocks
     fetchStocks(null, true);
   }, []);
 
@@ -169,9 +201,97 @@ export default function Stocks() {
     }
   };
 
-  // Handle refresh
+  // Handle refresh (including metrics)
   const handleRefresh = () => {
     fetchStocks(currentCursor);
+  };
+
+  // Handle metrics refresh
+  const handleRefreshMetrics = () => {
+    fetchStockMetrics();
+  };
+
+  // Cache management functions
+  const getCachedMetrics = (): CachedStockMetrics | null => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+      
+      const metrics: CachedStockMetrics = JSON.parse(cached);
+      const now = Date.now();
+      
+      // Check if cache is still valid
+      if (now - metrics.timestamp < CACHE_DURATION) {
+        return metrics;
+      }
+      
+      // Cache expired
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    } catch (error) {
+      console.error('Error reading cache:', error);
+      return null;
+    }
+  };
+
+  const setCachedMetrics = (metrics: Omit<CachedStockMetrics, 'timestamp'>) => {
+    try {
+      const cacheData: CachedStockMetrics = {
+        ...metrics,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error('Error setting cache:', error);
+    }
+  };
+
+  // Load cached metrics on mount
+  useEffect(() => {
+    const cached = getCachedMetrics();
+    if (cached) {
+      setTotalItems(cached.totalItems);
+      setTotalStockQty(cached.totalStockQty);
+      setLowStockCount(cached.lowStockCount);
+      setOutOfStockCount(cached.outOfStockCount);
+      setIsLoadingMetrics(false);
+    }
+  }, []);
+
+  // Fetch metrics from /FindAllStocks (with count)
+  const fetchStockMetrics = async () => {
+    setIsLoadingMetrics(true);
+    try {
+      const response = await fetch('https://my-go-backend.onrender.com/FindAllStocks?per_page=1');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock metrics');
+      }
+      
+      const data: PaginatedStockResponse = await response.json();
+      
+      // Update metrics from response
+      const metrics = {
+        totalItems: data.total_count || 0,
+        totalStockQty: data.total_stock_qty || 0,
+        lowStockCount: data.low_stock_count || 0,
+        outOfStockCount: data.out_of_stock_count || 0
+      };
+      
+      setTotalItems(metrics.totalItems);
+      setTotalStockQty(metrics.totalStockQty);
+      setLowStockCount(metrics.lowStockCount);
+      setOutOfStockCount(metrics.outOfStockCount);
+      
+      // Cache the metrics
+      setCachedMetrics(metrics);
+      
+    } catch (error) {
+      console.error('Error fetching stock metrics:', error);
+      // Don't update error state here, as this is a background fetch
+    } finally {
+      setIsLoadingMetrics(false);
+    }
   };
 
   const filteredStocks = stocks.filter(stock =>
@@ -204,10 +324,6 @@ export default function Stocks() {
     return expiry < today;
   };
 
-  const totalStockQty = stocks.reduce((sum, stock) => sum + stock.stockQty, 0);
-  const lowStockCount = stocks.filter(stock => stock.stockQty < 10 && stock.stockQty > 0).length;
-  const outOfStockCount = stocks.filter(stock => stock.stockQty === 0).length;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -216,6 +332,16 @@ export default function Stocks() {
           <h1 className="text-3xl font-bold text-foreground">Stock Management</h1>
           <p className="text-muted-foreground mt-1">View and monitor your inventory stock levels</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefreshMetrics}
+          disabled={isLoadingMetrics}
+          title="Refresh stock statistics"
+        >
+          <RefreshCcw className={`h-4 w-4 mr-2 ${isLoadingMetrics ? 'animate-spin' : ''}`} />
+          Refresh Stats
+        </Button>
       </div>
 
       {/* Stats */}
@@ -224,7 +350,11 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-foreground">{stocks.length}</p>
+                {isLoadingMetrics ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{totalItems}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Total Items</p>
               </div>
               <Package className="h-8 w-8 text-primary" />
@@ -235,7 +365,11 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">{totalStockQty}</p>
+                {isLoadingMetrics ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-success">{totalStockQty}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Total Quantity</p>
               </div>
               <Package className="h-8 w-8 text-success" />
@@ -246,7 +380,11 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
+                {isLoadingMetrics ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-warning">{lowStockCount}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Low Stock</p>
               </div>
               <AlertCircle className="h-8 w-8 text-warning" />
@@ -257,7 +395,11 @@ export default function Stocks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-destructive">{outOfStockCount}</p>
+                {isLoadingMetrics ? (
+                  <div className="w-16 h-8 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold text-destructive">{outOfStockCount}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Out of Stock</p>
               </div>
               <AlertCircle className="h-8 w-8 text-destructive" />
