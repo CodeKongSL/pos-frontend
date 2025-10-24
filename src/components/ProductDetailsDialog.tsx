@@ -254,7 +254,7 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
               )}
             </div>
 
-            {/* Profit Margin */}
+            {/* Profit Margin
             <div className="p-4 rounded-lg border bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
               <div className="flex items-center justify-between">
                 <div>
@@ -272,7 +272,7 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Batches */}
             {product.batches && product.batches.length > 0 && (
