@@ -43,11 +43,16 @@ export default function Stocks() {
   const fetchStocks = async (cursor?: string | null, resetPagination = false) => {
     setIsLoading(true);
     setError(null);
+    console.log('fetchStocks called with cursor:', cursor, 'resetPagination:', resetPagination, 'perPage:', perPage);
     
     try {
+      // If resetPagination is true, don't use any cursor (start from beginning)
+      const apiCursor = resetPagination ? undefined : (cursor || undefined);
+      console.log('Using API cursor:', apiCursor);
+      
       const params = {
         per_page: perPage,
-        cursor: (!resetPagination && cursor) ? cursor : undefined,
+        cursor: apiCursor,
       };
       
       let data: any;
@@ -61,19 +66,26 @@ export default function Stocks() {
         data = await StockService.getAllStocksLite(params);
       }
       
+      console.log('Stocks response:', data);
+      console.log('Setting stocks count:', data.data.length);
+      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
+      
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
       setHasMore(data.has_more);
       
+      // Only set current cursor if we're not resetting pagination
       if (!resetPagination) {
         setCurrentCursor(cursor || null);
       } else {
         setCurrentCursor(null);
       }
       
+      // Reset pagination tracking if needed
       if (resetPagination) {
         setCursors([]);
         setCurrentPage(1);
+        console.log('Reset pagination tracking');
       }
       
     } catch (error) {
@@ -108,13 +120,31 @@ export default function Stocks() {
   // Handle per page change
   const handlePerPageChange = async (value: string) => {
     const newPerPage = parseInt(value);
+    console.log('Changing per page from', perPage, 'to', newPerPage);
     setPerPage(newPerPage);
+    // Reset to first page when changing per page
+    console.log('Resetting pagination to first page');
     
+    // Manually call the API with the new perPage value
     setIsLoading(true);
     setError(null);
+    console.log('fetchData called with new perPage:', newPerPage, 'resetPagination: true');
     
     try {
-      const data = await StockService.getAllStocksLite({ per_page: newPerPage });
+      let data: any;
+      
+      // Choose the appropriate API based on filter
+      if (statusFilter === 'low') {
+        data = await StockService.getFilteredStocks('low', { per_page: newPerPage, cursor: undefined });
+      } else if (statusFilter === 'average') {
+        data = await StockService.getFilteredStocks('average', { per_page: newPerPage, cursor: undefined });
+      } else {
+        data = await StockService.getAllStocksLite({ per_page: newPerPage, cursor: undefined });
+      }
+      
+      console.log('Stocks response:', data);
+      console.log('Setting stocks count:', data.data.length);
+      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -122,6 +152,7 @@ export default function Stocks() {
       setCurrentCursor(null);
       setCursors([]);
       setCurrentPage(1);
+      console.log('Reset pagination tracking');
       
     } catch (error) {
       console.error("Error fetching stocks:", error);
@@ -138,6 +169,8 @@ export default function Stocks() {
   // Handle next page
   const handleNextPage = () => {
     if (hasMore && nextCursor) {
+      console.log('Moving to next page, current cursor:', currentCursor, 'next cursor:', nextCursor);
+      // Store current cursor for back navigation
       const newCursors = [...cursors];
       if (currentCursor !== null) {
         newCursors.push(currentCursor);
@@ -153,8 +186,10 @@ export default function Stocks() {
     if (currentPage > 1) {
       const newCursors = [...cursors];
       const prevCursor = newCursors.pop();
+      console.log('Moving to previous page, current page:', currentPage, 'prev cursor:', prevCursor);
       setCursors(newCursors);
       setCurrentPage(currentPage - 1);
+      // If we're going back to page 1, use null cursor
       fetchStocks(currentPage === 2 ? null : prevCursor || null);
     }
   };
@@ -426,6 +461,7 @@ export default function Stocks() {
             <TableHeader>
               <TableRow>
                 <TableHead>Product ID</TableHead>
+                <TableHead>Batch ID</TableHead>
                 <TableHead>Product Name</TableHead>
                 <TableHead>Stock Quantity</TableHead>
                 <TableHead>Expiry Date</TableHead>
@@ -437,7 +473,7 @@ export default function Stocks() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
                       <p className="text-sm text-muted-foreground">Loading stocks...</p>
@@ -446,7 +482,7 @@ export default function Stocks() {
                 </TableRow>
               ) : filteredStocks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <div className="flex flex-col items-center justify-center">
                       <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
                       <p className="text-lg font-medium text-foreground mb-1">
@@ -477,6 +513,15 @@ export default function Stocks() {
                 filteredStocks.map((stock) => (
                   <TableRow key={stock.id}>
                     <TableCell className="font-medium">{stock.productId}</TableCell>
+                    <TableCell>
+                      {stock.batchId ? (
+                        <Badge variant="outline" className="text-xs">
+                          {stock.batchId}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">No batch</span>
+                      )}
+                    </TableCell>
                     <TableCell>{stock.name}</TableCell>
                     <TableCell>
                       <span className={`font-medium ${stock.stockQty < 10 ? 'text-warning' : 'text-foreground'}`}>

@@ -1,3 +1,13 @@
+export interface Batch {
+  batchId: string;
+  stockQty: number;
+  expiry_date?: string;
+  costPrice: number;
+  sellingPrice: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Product {
   productId: string;
   name: string;
@@ -8,7 +18,9 @@ export interface Product {
   description?: string;
   costPrice: number;
   sellingPrice: number;
-  stockQty: number;
+  stockQty: number;  // Total of all batches
+  expiry_date?: string;
+  batches?: Batch[];  // Array of batches
   deleted: boolean;
   created_at: string;
   updated_at: string;

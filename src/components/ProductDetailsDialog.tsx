@@ -274,6 +274,47 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
               </div>
             </div>
 
+            {/* Batches */}
+            {product.batches && product.batches.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-3">Batches ({product.batches.length})</h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Batch ID</th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Stock Qty</th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Expiry Date</th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Cost Price</th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Selling Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {product.batches.map((batch, index) => (
+                        <tr key={batch.batchId} className={index % 2 === 0 ? 'bg-card' : 'bg-muted/20'}>
+                          <td className="p-3">
+                            <Badge variant="outline" className="text-xs">
+                              {batch.batchId}
+                            </Badge>
+                          </td>
+                          <td className="p-3 font-medium">{batch.stockQty}</td>
+                          <td className="p-3">{batch.expiry_date ? formatDate(batch.expiry_date) : 'N/A'}</td>
+                          <td className="p-3 font-medium">Rs. {Number(batch.costPrice).toLocaleString()}</td>
+                          <td className="p-3 font-medium text-green-600">Rs. {Number(batch.sellingPrice).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+                  <p className="text-sm">
+                    <strong>Total Stock (All Batches):</strong>{' '}
+                    <span className="text-lg font-bold text-primary">{product.stockQty} units</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Product Subcategories */}
             {product.productSubcategories && product.productSubcategories.length > 0 && (
               <div>

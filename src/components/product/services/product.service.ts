@@ -38,6 +38,7 @@ export const ProductService = {
         sellingPrice: Number(data.sellingPrice) || 0,
         stockQty: Number(data.stockQty) || 0,
         expiry_date: data.expiry_date || '',
+        batches: data.batches || [],
         created_at: data.created_at || '',
         updated_at: data.updated_at || '',
         deleted: data.deleted || false,
@@ -208,6 +209,7 @@ export const ProductService = {
                     sellingPrice: Number(item.sellingPrice) || 0,
                     stockQty: Number(item.stockQty) || 0,
                     expiry_date: String(item.expiry_date || ''),
+                    batches: Array.isArray(item.batches) ? item.batches : [],
                     created_at: String(item.created_at || ''),
                     updated_at: String(item.updated_at || ''),
                     deleted: Boolean(item.deleted),
@@ -336,6 +338,8 @@ export const ProductService = {
           // Handle specific error cases
           if (errorData.error?.includes('[ProductId] unique')) {
             errorMessage = 'A product with this combination already exists. Please modify the details and try again.';
+          } else if (errorData.error?.includes('same category, brand, and subcategory already exists with the same expiry date')) {
+            errorMessage = 'A product with the same category, brand, and subcategory already exists with the same expiry date. Please use a different expiry date to create a new batch.';
           } else if (errorData.error) {
             errorMessage = errorData.error;
           }
@@ -350,10 +354,21 @@ export const ProductService = {
       // Try to parse the response as JSON if it's not empty
       const data = responseText ? JSON.parse(responseText) : {};
       
+      // Check if this is a batch addition response
+      if (data.message?.includes('Batch added to existing product')) {
+        console.log('Batch added successfully:', data);
+        // Return the existing product with updated batch information
+        // Fetch the updated product to get the latest batch data
+        if (data.productId) {
+          return await this.getProductById(data.productId);
+        }
+      }
+      
       // Transform the response if needed
       const transformedProduct: Product = {
         ...data,
-        expiry_date: data.expiry_date || '',  // Use the expiry_date directly from the backend response
+        expiry_date: data.expiry_date || '',
+        batches: data.batches || [],
         productSubcategories: data.productSubcategories || []
       };
 

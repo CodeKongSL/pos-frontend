@@ -23,6 +23,7 @@ import { CreateCategoryDialog } from "./CreateCategoryDialog";
 import { CreateBrandDialog } from "./CreateBrandDialog";
 import { SubcategorySelectionDialog } from "./SubcategorySelectionDialog";
 import { SelectedSubcategoriesDisplay } from "./SelectedSubcategoriesDisplay";
+import { useToast } from "@/hooks/use-toast";
 
 
 
@@ -43,6 +44,7 @@ interface AddProductDialogProps {
 }
 
 export function AddProductDialog({ children }: AddProductDialogProps) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -129,6 +131,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
     try {
       // Format the product name to include brand and subcategory
@@ -169,9 +172,18 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       console.log("Creating product:", productData);
       
       // Create product
-      await ProductService.createProduct(productData);
+      const result = await ProductService.createProduct(productData);
       
-      console.log("Product created successfully");
+      console.log("Product created successfully:", result);
+      
+      // Show success toast notification
+      toast({
+        title: "Success!",
+        description: result.batches && result.batches.length > 1 
+          ? `Batch added to existing product successfully` 
+          : `Product "${formattedName}" created successfully`,
+        variant: "default",
+      });
       
       // Reset form and close dialog
       setFormData({
