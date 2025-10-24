@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ export default function Stocks() {
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
   const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
   const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -43,11 +44,16 @@ export default function Stocks() {
   const fetchStocks = async (cursor?: string | null, resetPagination = false) => {
     setIsLoading(true);
     setError(null);
+    console.log('fetchStocks called with cursor:', cursor, 'resetPagination:', resetPagination, 'perPage:', perPage);
     
     try {
+      // If resetPagination is true, don't use any cursor (start from beginning)
+      const apiCursor = resetPagination ? undefined : (cursor || undefined);
+      console.log('Using API cursor:', apiCursor);
+      
       const params = {
         per_page: perPage,
-        cursor: (!resetPagination && cursor) ? cursor : undefined,
+        cursor: apiCursor,
       };
       
       let data: any;
@@ -61,19 +67,26 @@ export default function Stocks() {
         data = await StockService.getAllStocksLite(params);
       }
       
+      console.log('Stocks response:', data);
+      console.log('Setting stocks count:', data.data.length);
+      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
+      
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
       setHasMore(data.has_more);
       
+      // Only set current cursor if we're not resetting pagination
       if (!resetPagination) {
         setCurrentCursor(cursor || null);
       } else {
         setCurrentCursor(null);
       }
       
+      // Reset pagination tracking if needed
       if (resetPagination) {
         setCursors([]);
         setCurrentPage(1);
+        console.log('Reset pagination tracking');
       }
       
     } catch (error) {
@@ -108,13 +121,31 @@ export default function Stocks() {
   // Handle per page change
   const handlePerPageChange = async (value: string) => {
     const newPerPage = parseInt(value);
+    console.log('Changing per page from', perPage, 'to', newPerPage);
     setPerPage(newPerPage);
+    // Reset to first page when changing per page
+    console.log('Resetting pagination to first page');
     
+    // Manually call the API with the new perPage value
     setIsLoading(true);
     setError(null);
+    console.log('fetchData called with new perPage:', newPerPage, 'resetPagination: true');
     
     try {
-      const data = await StockService.getAllStocksLite({ per_page: newPerPage });
+      let data: any;
+      
+      // Choose the appropriate API based on filter
+      if (statusFilter === 'low') {
+        data = await StockService.getFilteredStocks('low', { per_page: newPerPage, cursor: undefined });
+      } else if (statusFilter === 'average') {
+        data = await StockService.getFilteredStocks('average', { per_page: newPerPage, cursor: undefined });
+      } else {
+        data = await StockService.getAllStocksLite({ per_page: newPerPage, cursor: undefined });
+      }
+      
+      console.log('Stocks response:', data);
+      console.log('Setting stocks count:', data.data.length);
+      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -122,6 +153,7 @@ export default function Stocks() {
       setCurrentCursor(null);
       setCursors([]);
       setCurrentPage(1);
+      console.log('Reset pagination tracking');
       
     } catch (error) {
       console.error("Error fetching stocks:", error);
@@ -138,6 +170,8 @@ export default function Stocks() {
   // Handle next page
   const handleNextPage = () => {
     if (hasMore && nextCursor) {
+      console.log('Moving to next page, current cursor:', currentCursor, 'next cursor:', nextCursor);
+      // Store current cursor for back navigation
       const newCursors = [...cursors];
       if (currentCursor !== null) {
         newCursors.push(currentCursor);
@@ -153,8 +187,10 @@ export default function Stocks() {
     if (currentPage > 1) {
       const newCursors = [...cursors];
       const prevCursor = newCursors.pop();
+      console.log('Moving to previous page, current page:', currentPage, 'prev cursor:', prevCursor);
       setCursors(newCursors);
       setCurrentPage(currentPage - 1);
+      // If we're going back to page 1, use null cursor
       fetchStocks(currentPage === 2 ? null : prevCursor || null);
     }
   };
@@ -214,6 +250,31 @@ export default function Stocks() {
     stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     stock.productId.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const groupedStocks = filteredStocks.reduce((acc, stock) => {
+    if (!acc[stock.productId]) {
+      acc[stock.productId] = {
+        productId: stock.productId,
+        name: stock.name,
+        batches: []
+      };
+    }
+    acc[stock.productId].batches.push(stock);
+    return acc;
+  }, {} as Record<string, { productId: string; name: string; batches: Stock[] }>);
+
+  const groupedStocksArray = Object.values(groupedStocks);
+
+  // Toggle function
+  const toggleProduct = (productId: string) => {
+    const newExpanded = new Set(expandedProducts);
+    if (newExpanded.has(productId)) {
+      newExpanded.delete(productId);
+    } else {
+      newExpanded.add(productId);
+    }
+    setExpandedProducts(newExpanded);
+  };
 
   const getStockStatusBadge = (status: string) => {
     switch (status) {
@@ -398,7 +459,7 @@ export default function Stocks() {
         <CardHeader>
           <CardTitle>
             {statusFilter === 'low' ? 'Low Stock Items' : statusFilter === 'average' ? 'Average Stock Items' : 'Available Stocks'} 
-            ({filteredStocks.length} on this page)
+            ({groupedStocksArray.length} product{groupedStocksArray.length !== 1 ? 's' : ''} on this page)
             {currentPage > 1 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 - Page {currentPage}
@@ -422,94 +483,170 @@ export default function Stocks() {
           )}
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product ID</TableHead>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Stock Quantity</TableHead>
-                <TableHead>Expiry Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created Date</TableHead>
-                <TableHead>Last Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
-                      <p className="text-sm text-muted-foreground">Loading stocks...</p>
-                    </div>
-                  </TableCell>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Product ID</TableHead>
+                  <TableHead>Product Name</TableHead>
+                  <TableHead className="text-right">Total Batches</TableHead>
+                  <TableHead className="text-right">Total Quantity</TableHead>
                 </TableRow>
-              ) : filteredStocks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center">
-                      <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
-                      <p className="text-lg font-medium text-foreground mb-1">
-                        {currentPage === 1 ? "No Stocks Found" : "No More Stocks"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {searchTerm 
-                          ? "Try adjusting your search criteria"
-                          : currentPage === 1 
-                            ? "No stock items available at the moment"
-                            : "You've reached the end of the stock list"}
-                      </p>
-                      {currentPage > 1 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handlePrevPage}
-                          className="mt-3"
-                        >
-                          <ChevronLeft className="h-4 w-4 mr-1" />
-                          Go back to previous page
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredStocks.map((stock) => (
-                  <TableRow key={stock.id}>
-                    <TableCell className="font-medium">{stock.productId}</TableCell>
-                    <TableCell>{stock.name}</TableCell>
-                    <TableCell>
-                      <span className={`font-medium ${stock.stockQty < 10 ? 'text-warning' : 'text-foreground'}`}>
-                        {stock.stockQty}
-                      </span>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+                        <p className="text-sm text-muted-foreground">Loading stocks...</p>
+                      </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className={
-                          isExpired(stock.expiry_date) 
-                            ? 'text-destructive font-medium' 
-                            : isExpiringSoon(stock.expiry_date)
-                              ? 'text-warning font-medium'
-                              : ''
-                        }>
-                          {formatDate(stock.expiry_date)}
-                        </span>
-                        {isExpired(stock.expiry_date) && (
-                          <span className="text-xs text-destructive">Expired</span>
-                        )}
-                        {!isExpired(stock.expiry_date) && isExpiringSoon(stock.expiry_date) && (
-                          <span className="text-xs text-warning">Expiring Soon</span>
+                  </TableRow>
+                ) : groupedStocksArray.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center">
+                        <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
+                        <p className="text-lg font-medium text-foreground mb-1">
+                          {currentPage === 1 ? "No Stocks Found" : "No More Stocks"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {searchTerm 
+                            ? "Try adjusting your search criteria"
+                            : currentPage === 1 
+                              ? "No stock items available at the moment"
+                              : "You've reached the end of the stock list"}
+                        </p>
+                        {currentPage > 1 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePrevPage}
+                            className="mt-3"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Go back to previous page
+                          </Button>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{getStockStatusBadge(stock.status)}</TableCell>
-                    <TableCell>{formatDate(stock.created_at)}</TableCell>
-                    <TableCell>{formatDate(stock.updated_at)}</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  <>
+                    {groupedStocksArray.map((group) => {
+                      const isExpanded = expandedProducts.has(group.productId);
+                      const totalQty = group.batches.reduce((sum, batch) => sum + batch.stockQty, 0);
+                      
+                      return (
+                        <>
+                          {/* Product Row */}
+                          <TableRow 
+                            key={group.productId}
+                            className="cursor-pointer hover:bg-muted/50 bg-muted/20 font-medium"
+                            onClick={() => toggleProduct(group.productId)}
+                          >
+                            <TableCell>
+                              <ChevronDown 
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'transform rotate-180' : ''}`}
+                              />
+                            </TableCell>
+                            <TableCell>{group.productId}</TableCell>
+                            <TableCell>{group.name}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline">{group.batches.length} batch{group.batches.length !== 1 ? 'es' : ''}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-normal">{totalQty}</TableCell>
+                          </TableRow>
+                          
+                          {/* Batch Rows - Compact Table Format */}
+                          {isExpanded && (
+                            <TableRow className="bg-muted/30">
+                              <TableCell colSpan={5} className="p-0">
+                                <div className="px-4 py-3">
+                                  <div className="rounded-lg border bg-background overflow-hidden">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow className="bg-muted/50">
+                                          <TableHead className="h-9 text-xs">Batch ID</TableHead>
+                                          <TableHead className="h-9 text-xs">Quantity</TableHead>
+                                          <TableHead className="h-9 text-xs">Expiry Date</TableHead>
+                                          <TableHead className="h-9 text-xs">Status</TableHead>
+                                          <TableHead className="h-9 text-xs hidden lg:table-cell">Created</TableHead>
+                                          <TableHead className="h-9 text-xs hidden lg:table-cell">Updated</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {group.batches.map((stock) => (
+                                          <TableRow key={stock.id} className="hover:bg-muted/30">
+                                            <TableCell className="py-3">
+                                              {stock.batchId ? (
+                                                <span className="text-xs">{stock.batchId}</span>
+                                              ) : (
+                                                <span className="text-muted-foreground text-xs italic">No batch</span>
+                                              )}
+                                            </TableCell>
+                                            <TableCell>
+                                              <span className={`font-semibold ${stock.stockQty < 10 ? 'text-warning' : 'text-foreground'}`}>
+                                                {stock.stockQty}
+                                              </span>
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="flex flex-col gap-0.5">
+                                                <span className={`text-sm ${
+                                                  isExpired(stock.expiry_date) 
+                                                    ? 'text-destructive font-medium' 
+                                                    : isExpiringSoon(stock.expiry_date)
+                                                      ? 'text-warning font-medium'
+                                                      : ''
+                                                }`}>
+                                                  {formatDate(stock.expiry_date)}
+                                                </span>
+                                                {isExpired(stock.expiry_date) && (
+                                                  <Badge variant="destructive" className="text-xs w-fit">Expired</Badge>
+                                                )}
+                                                {!isExpired(stock.expiry_date) && isExpiringSoon(stock.expiry_date) && (
+                                                  <Badge variant="outline" className="text-xs w-fit text-warning border-warning">Expiring Soon</Badge>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              {getStockStatusBadge(stock.status)}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
+                                              {formatDate(stock.created_at)}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
+                                              {formatDate(stock.updated_at)}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                  
+                                  {/* Mobile-only: Show dates below for small screens */}
+                                  <div className="lg:hidden mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                    <div>
+                                      <span className="font-medium">Created:</span> {formatDate(group.batches[0].created_at)}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Updated:</span> {formatDate(group.batches[0].updated_at)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })}
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
           
           {/* Pagination Controls */}
           <div className="flex items-center justify-between px-2 py-4 border-t">

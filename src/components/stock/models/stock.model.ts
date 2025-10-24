@@ -1,9 +1,10 @@
 export interface Stock {
   id: string;
   productId: string;
+  batchId?: string;  // Batch identifier
   name: string;
   stockQty: number;
-  status: string;
+  status: "Low Stock" | "Average Stock" | "Good Stock" | "Out of Stock";
   expiry_date: string;
   created_at: string;
   updated_at: string;
