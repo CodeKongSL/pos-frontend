@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown, Database } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown, Database, Plus, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,11 @@ import {
 } from "@/components/ui/table";
 import { Stock } from "@/components/stock/models/stock.model";
 import { StockService } from "@/components/stock/services/stock.service";
+import AddStockDialog from "@/components/AddStockDialog";
+import EditStockOptionsDialog from "@/components/EditStockOptionsDialog";
+import ChangeStockQuantityDialog from "@/components/ChangeStockQuantityDialog";
+import ChangeStockDetailsDialog from "@/components/ChangeStockDetailsDialog";
+import DeleteStockDialog from "@/components/DeleteStockDialog";
 
 // Performance: Only log in development mode
 const isDev = import.meta.env.DEV;
@@ -40,6 +45,67 @@ export default function Stocks() {
   const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
   const [isMetricsCached, setIsMetricsCached] = useState<boolean>(false);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+
+  // Add Stock Dialog state
+  const [addStockDialog, setAddStockDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+  });
+
+  // Edit Stock Options Dialog state
+  const [editStockOptionsDialog, setEditStockOptionsDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+  });
+
+  // Change Stock Quantity Dialog state
+  const [changeQuantityDialog, setChangeQuantityDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
+  });
+
+  // Change Stock Details Dialog state
+  const [changeDetailsDialog, setChangeDetailsDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
+  });
+
+  // Delete Stock Dialog state
+  const [deleteStockDialog, setDeleteStockDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
+  });
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -375,6 +441,133 @@ export default function Stocks() {
     return StockService.isExpired(expiryDate);
   }, []);
 
+  // Handle add stock dialog
+  const handleOpenAddStock = useCallback((productId: string, productName: string) => {
+    setAddStockDialog({
+      open: true,
+      productId,
+      productName,
+    });
+  }, []);
+
+  const handleCloseAddStock = useCallback(() => {
+    setAddStockDialog({
+      open: false,
+      productId: "",
+      productName: "",
+    });
+  }, []);
+
+  const handleAddStockSuccess = useCallback(() => {
+    // Refresh the stocks list after successful addition
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
+  // Handle edit stock options dialog
+  const handleOpenEditStockOptions = useCallback((productId: string, productName: string) => {
+    setEditStockOptionsDialog({
+      open: true,
+      productId,
+      productName,
+    });
+  }, []);
+
+  const handleCloseEditStockOptions = useCallback(() => {
+    setEditStockOptionsDialog({
+      open: false,
+      productId: "",
+      productName: "",
+    });
+  }, []);
+
+  const handleChangeQuantity = useCallback(() => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === editStockOptionsDialog.productId
+    );
+    
+    setChangeQuantityDialog({
+      open: true,
+      productId: editStockOptionsDialog.productId,
+      productName: editStockOptionsDialog.productName,
+      batches: productBatches,
+    });
+  }, [editStockOptionsDialog, filteredStocks]);
+
+  const handleChangeDetails = useCallback(() => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === editStockOptionsDialog.productId
+    );
+    
+    setChangeDetailsDialog({
+      open: true,
+      productId: editStockOptionsDialog.productId,
+      productName: editStockOptionsDialog.productName,
+      batches: productBatches,
+    });
+  }, [editStockOptionsDialog, filteredStocks]);
+
+  const handleCloseChangeQuantity = useCallback(() => {
+    setChangeQuantityDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleCloseChangeDetails = useCallback(() => {
+    setChangeDetailsDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleEditSuccess = useCallback(() => {
+    // Refresh the stocks list after successful edit
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
+  const handleOpenDeleteStock = useCallback((productId: string, productName: string) => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === productId
+    );
+    
+    setDeleteStockDialog({
+      open: true,
+      productId,
+      productName,
+      batches: productBatches,
+    });
+  }, [filteredStocks]);
+
+  const handleCloseDeleteStock = useCallback(() => {
+    setDeleteStockDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleDeleteSuccess = useCallback(() => {
+    // Refresh the stocks list after successful deletion
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -572,12 +765,13 @@ export default function Stocks() {
                   <TableHead>Product Name</TableHead>
                   <TableHead className="text-right">Total Batches</TableHead>
                   <TableHead className="text-right">Total Quantity</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center">
                         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
                         <p className="text-sm text-muted-foreground">Loading stocks...</p>
@@ -586,7 +780,7 @@ export default function Stocks() {
                   </TableRow>
                 ) : groupedStocksArray.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center">
                         <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
                         <p className="text-lg font-medium text-foreground mb-1">
@@ -638,12 +832,52 @@ export default function Stocks() {
                               <Badge variant="outline">{group.batches.length} batch{group.batches.length !== 1 ? 'es' : ''}</Badge>
                             </TableCell>
                             <TableCell className="text-right font-normal">{totalQty}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAddStock(group.productId, group.name);
+                                  }}
+                                  title="Add new stock"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditStockOptions(group.productId, group.name);
+                                  }}
+                                  title="Edit stock"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenDeleteStock(group.productId, group.name);
+                                  }}
+                                  title="Delete stock"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                           
                           {/* Batch Rows - Compact Table Format */}
                           {isExpanded && (
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={5} className="p-0">
+                              <TableCell colSpan={6} className="p-0">
                                 <div className="px-4 py-3">
                                   <div className="rounded-lg border bg-background overflow-hidden">
                                     <Table>
@@ -757,6 +991,54 @@ export default function Stocks() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Stock Dialog */}
+      <AddStockDialog
+        open={addStockDialog.open}
+        onOpenChange={handleCloseAddStock}
+        productId={addStockDialog.productId}
+        productName={addStockDialog.productName}
+        onSuccess={handleAddStockSuccess}
+      />
+
+      {/* Edit Stock Options Dialog */}
+      <EditStockOptionsDialog
+        open={editStockOptionsDialog.open}
+        onOpenChange={handleCloseEditStockOptions}
+        productId={editStockOptionsDialog.productId}
+        productName={editStockOptionsDialog.productName}
+        onChangeQuantity={handleChangeQuantity}
+        onChangeDetails={handleChangeDetails}
+      />
+
+      {/* Change Stock Quantity Dialog */}
+      <ChangeStockQuantityDialog
+        open={changeQuantityDialog.open}
+        onOpenChange={handleCloseChangeQuantity}
+        productId={changeQuantityDialog.productId}
+        productName={changeQuantityDialog.productName}
+        batches={changeQuantityDialog.batches}
+        onSuccess={handleEditSuccess}
+      />
+
+      {/* Change Stock Details Dialog */}
+      <ChangeStockDetailsDialog
+        open={changeDetailsDialog.open}
+        onOpenChange={handleCloseChangeDetails}
+        productId={changeDetailsDialog.productId}
+        productName={changeDetailsDialog.productName}
+        batches={changeDetailsDialog.batches}
+        onSuccess={handleEditSuccess}
+      />
+      {/* Delete Stock Dialog */}
+      <DeleteStockDialog
+        open={deleteStockDialog.open}
+        onOpenChange={handleCloseDeleteStock}
+        productId={deleteStockDialog.productId}
+        productName={deleteStockDialog.productName}
+        batches={deleteStockDialog.batches}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }

@@ -8,6 +8,9 @@ const FIND_ALL_STOCKS_LITE_URL = `${API_BASE_URL}/FindAllStocksLite`;
 const FIND_ALL_STOCKS_FILTERED_URL = `${API_BASE_URL}/FindAllStocksFiltered`;
 const GET_TOTAL_STOCK_QUANTITY_URL = `${API_BASE_URL}/GetTotalStockQuantity`;
 const GET_STOCK_STATUS_COUNTS_URL = `${API_BASE_URL}/GetStockStatusCounts`;
+const ADD_STOCK_URL = `${API_BASE_URL}/AddStock`;
+const EDIT_BATCH_STOCK_URL = `${API_BASE_URL}/EditBatchStock`;
+const EDIT_BATCH_DETAILS_URL = `${API_BASE_URL}/EditBatchDetails`;
 
 const CACHE_KEY = 'stock_metrics_cache';
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
@@ -303,5 +306,105 @@ export const StockService = {
   formatDate(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  },
+
+  /**
+   * Add new stock to an existing product
+   */
+  async addStock(data: {
+    productId: string;
+    stockQty: number;
+    expiryDate: string;
+    costPrice: number;
+    sellingPrice: number;
+  }): Promise<any> {
+    try {
+      console.log('📦 Adding stock with data:', data);
+      const response = await fetch(ADD_STOCK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Failed to add stock: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Stock added successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error adding stock:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to add stock');
+    }
+  },
+
+  /**
+   * Edit batch stock quantity
+   */
+  async editBatchStock(data: {
+    productId: string;
+    batchId: string;
+    stockQty: number;
+  }): Promise<any> {
+    try {
+      console.log('📝 Editing batch stock with data:', data);
+      const response = await fetch(EDIT_BATCH_STOCK_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Failed to edit batch stock: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Batch stock updated successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error editing batch stock:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to edit batch stock');
+    }
+  },
+
+  /**
+   * Edit batch details (expiry date, cost price, selling price)
+   */
+  async editBatchDetails(data: {
+    productId: string;
+    batchId: string;
+    expiryDate: string;
+    costPrice: number;
+    sellingPrice: number;
+  }): Promise<any> {
+    try {
+      console.log('📝 Editing batch details with data:', data);
+      const response = await fetch(EDIT_BATCH_DETAILS_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Failed to edit batch details: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Batch details updated successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error editing batch details:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to edit batch details');
+    }
   }
 };
