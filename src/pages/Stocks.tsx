@@ -19,6 +19,7 @@ import AddStockDialog from "@/components/AddStockDialog";
 import EditStockOptionsDialog from "@/components/EditStockOptionsDialog";
 import ChangeStockQuantityDialog from "@/components/ChangeStockQuantityDialog";
 import ChangeStockDetailsDialog from "@/components/ChangeStockDetailsDialog";
+import DeleteStockDialog from "@/components/DeleteStockDialog";
 
 // Performance: Only log in development mode
 const isDev = import.meta.env.DEV;
@@ -82,6 +83,19 @@ export default function Stocks() {
 
   // Change Stock Details Dialog state
   const [changeDetailsDialog, setChangeDetailsDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
+  });
+
+  // Delete Stock Dialog state
+  const [deleteStockDialog, setDeleteStockDialog] = useState<{
     open: boolean;
     productId: string;
     productName: string;
@@ -523,6 +537,37 @@ export default function Stocks() {
     fetchTotalStockQuantity(true);
   }, [currentCursor]);
 
+  const handleOpenDeleteStock = useCallback((productId: string, productName: string) => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === productId
+    );
+    
+    setDeleteStockDialog({
+      open: true,
+      productId,
+      productName,
+      batches: productBatches,
+    });
+  }, [filteredStocks]);
+
+  const handleCloseDeleteStock = useCallback(() => {
+    setDeleteStockDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleDeleteSuccess = useCallback(() => {
+    // Refresh the stocks list after successful deletion
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -819,7 +864,7 @@ export default function Stocks() {
                                   className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Delete functionality here
+                                    handleOpenDeleteStock(group.productId, group.name);
                                   }}
                                   title="Delete stock"
                                 >
@@ -984,6 +1029,15 @@ export default function Stocks() {
         productName={changeDetailsDialog.productName}
         batches={changeDetailsDialog.batches}
         onSuccess={handleEditSuccess}
+      />
+      {/* Delete Stock Dialog */}
+      <DeleteStockDialog
+        open={deleteStockDialog.open}
+        onOpenChange={handleCloseDeleteStock}
+        productId={deleteStockDialog.productId}
+        productName={deleteStockDialog.productName}
+        batches={deleteStockDialog.batches}
+        onSuccess={handleDeleteSuccess}
       />
     </div>
   );
