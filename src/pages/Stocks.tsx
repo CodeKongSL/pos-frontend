@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown, Database } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown, Database, Plus, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Stock } from "@/components/stock/models/stock.model";
 import { StockService } from "@/components/stock/services/stock.service";
+import AddStockDialog from "@/components/AddStockDialog";
 
 // Performance: Only log in development mode
 const isDev = import.meta.env.DEV;
@@ -40,6 +41,17 @@ export default function Stocks() {
   const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
   const [isMetricsCached, setIsMetricsCached] = useState<boolean>(false);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+
+  // Add Stock Dialog state
+  const [addStockDialog, setAddStockDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+  });
 
   // Pagination state
   const [perPage, setPerPage] = useState<number>(15);
@@ -375,6 +387,31 @@ export default function Stocks() {
     return StockService.isExpired(expiryDate);
   }, []);
 
+  // Handle add stock dialog
+  const handleOpenAddStock = useCallback((productId: string, productName: string) => {
+    setAddStockDialog({
+      open: true,
+      productId,
+      productName,
+    });
+  }, []);
+
+  const handleCloseAddStock = useCallback(() => {
+    setAddStockDialog({
+      open: false,
+      productId: "",
+      productName: "",
+    });
+  }, []);
+
+  const handleAddStockSuccess = useCallback(() => {
+    // Refresh the stocks list after successful addition
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -572,12 +609,13 @@ export default function Stocks() {
                   <TableHead>Product Name</TableHead>
                   <TableHead className="text-right">Total Batches</TableHead>
                   <TableHead className="text-right">Total Quantity</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center">
                         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
                         <p className="text-sm text-muted-foreground">Loading stocks...</p>
@@ -586,7 +624,7 @@ export default function Stocks() {
                   </TableRow>
                 ) : groupedStocksArray.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center">
                         <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
                         <p className="text-lg font-medium text-foreground mb-1">
@@ -638,12 +676,52 @@ export default function Stocks() {
                               <Badge variant="outline">{group.batches.length} batch{group.batches.length !== 1 ? 'es' : ''}</Badge>
                             </TableCell>
                             <TableCell className="text-right font-normal">{totalQty}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAddStock(group.productId, group.name);
+                                  }}
+                                  title="Add new stock"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Edit functionality here
+                                  }}
+                                  title="Edit stock"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Delete functionality here
+                                  }}
+                                  title="Delete stock"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                           
                           {/* Batch Rows - Compact Table Format */}
                           {isExpanded && (
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={5} className="p-0">
+                              <TableCell colSpan={6} className="p-0">
                                 <div className="px-4 py-3">
                                   <div className="rounded-lg border bg-background overflow-hidden">
                                     <Table>
@@ -757,6 +835,15 @@ export default function Stocks() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Stock Dialog */}
+      <AddStockDialog
+        open={addStockDialog.open}
+        onOpenChange={handleCloseAddStock}
+        productId={addStockDialog.productId}
+        productName={addStockDialog.productName}
+        onSuccess={handleAddStockSuccess}
+      />
     </div>
   );
 }
