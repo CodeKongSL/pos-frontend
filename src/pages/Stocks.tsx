@@ -34,6 +34,7 @@ export default function Stocks() {
   const [totalStockQty, setTotalStockQty] = useState<number>(0);
   const [lowStockCount, setLowStockCount] = useState<number>(0);
   const [averageStockCount, setAverageStockCount] = useState<number>(0);
+  const [goodStockCount, setGoodStockCount] = useState<number>(0);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
   const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
   const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
