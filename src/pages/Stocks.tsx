@@ -16,6 +16,9 @@ import {
 import { Stock } from "@/components/stock/models/stock.model";
 import { StockService } from "@/components/stock/services/stock.service";
 import AddStockDialog from "@/components/AddStockDialog";
+import EditStockOptionsDialog from "@/components/EditStockOptionsDialog";
+import ChangeStockQuantityDialog from "@/components/ChangeStockQuantityDialog";
+import ChangeStockDetailsDialog from "@/components/ChangeStockDetailsDialog";
 
 // Performance: Only log in development mode
 const isDev = import.meta.env.DEV;
@@ -51,6 +54,43 @@ export default function Stocks() {
     open: false,
     productId: "",
     productName: "",
+  });
+
+  // Edit Stock Options Dialog state
+  const [editStockOptionsDialog, setEditStockOptionsDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+  });
+
+  // Change Stock Quantity Dialog state
+  const [changeQuantityDialog, setChangeQuantityDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
+  });
+
+  // Change Stock Details Dialog state
+  const [changeDetailsDialog, setChangeDetailsDialog] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    batches: Stock[];
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    batches: [],
   });
 
   // Pagination state
@@ -412,6 +452,77 @@ export default function Stocks() {
     fetchTotalStockQuantity(true);
   }, [currentCursor]);
 
+  // Handle edit stock options dialog
+  const handleOpenEditStockOptions = useCallback((productId: string, productName: string) => {
+    setEditStockOptionsDialog({
+      open: true,
+      productId,
+      productName,
+    });
+  }, []);
+
+  const handleCloseEditStockOptions = useCallback(() => {
+    setEditStockOptionsDialog({
+      open: false,
+      productId: "",
+      productName: "",
+    });
+  }, []);
+
+  const handleChangeQuantity = useCallback(() => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === editStockOptionsDialog.productId
+    );
+    
+    setChangeQuantityDialog({
+      open: true,
+      productId: editStockOptionsDialog.productId,
+      productName: editStockOptionsDialog.productName,
+      batches: productBatches,
+    });
+  }, [editStockOptionsDialog, filteredStocks]);
+
+  const handleChangeDetails = useCallback(() => {
+    // Get the batches for the selected product
+    const productBatches = filteredStocks.filter(
+      stock => stock.productId === editStockOptionsDialog.productId
+    );
+    
+    setChangeDetailsDialog({
+      open: true,
+      productId: editStockOptionsDialog.productId,
+      productName: editStockOptionsDialog.productName,
+      batches: productBatches,
+    });
+  }, [editStockOptionsDialog, filteredStocks]);
+
+  const handleCloseChangeQuantity = useCallback(() => {
+    setChangeQuantityDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleCloseChangeDetails = useCallback(() => {
+    setChangeDetailsDialog({
+      open: false,
+      productId: "",
+      productName: "",
+      batches: [],
+    });
+  }, []);
+
+  const handleEditSuccess = useCallback(() => {
+    // Refresh the stocks list after successful edit
+    fetchStocks(currentCursor);
+    // Also refresh metrics
+    fetchStockStatusCounts(true);
+    fetchTotalStockQuantity(true);
+  }, [currentCursor]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -696,7 +807,7 @@ export default function Stocks() {
                                   className="h-8 w-8 p-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Edit functionality here
+                                    handleOpenEditStockOptions(group.productId, group.name);
                                   }}
                                   title="Edit stock"
                                 >
@@ -843,6 +954,36 @@ export default function Stocks() {
         productId={addStockDialog.productId}
         productName={addStockDialog.productName}
         onSuccess={handleAddStockSuccess}
+      />
+
+      {/* Edit Stock Options Dialog */}
+      <EditStockOptionsDialog
+        open={editStockOptionsDialog.open}
+        onOpenChange={handleCloseEditStockOptions}
+        productId={editStockOptionsDialog.productId}
+        productName={editStockOptionsDialog.productName}
+        onChangeQuantity={handleChangeQuantity}
+        onChangeDetails={handleChangeDetails}
+      />
+
+      {/* Change Stock Quantity Dialog */}
+      <ChangeStockQuantityDialog
+        open={changeQuantityDialog.open}
+        onOpenChange={handleCloseChangeQuantity}
+        productId={changeQuantityDialog.productId}
+        productName={changeQuantityDialog.productName}
+        batches={changeQuantityDialog.batches}
+        onSuccess={handleEditSuccess}
+      />
+
+      {/* Change Stock Details Dialog */}
+      <ChangeStockDetailsDialog
+        open={changeDetailsDialog.open}
+        onOpenChange={handleCloseChangeDetails}
+        productId={changeDetailsDialog.productId}
+        productName={changeDetailsDialog.productName}
+        batches={changeDetailsDialog.batches}
+        onSuccess={handleEditSuccess}
       />
     </div>
   );

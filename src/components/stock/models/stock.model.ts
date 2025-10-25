@@ -6,6 +6,8 @@ export interface Stock {
   stockQty: number;
   status: "Low Stock" | "Average Stock" | "Good Stock" | "Out of Stock";
   expiry_date: string;
+  costPrice?: number;  // Cost price of the batch
+  sellingPrice?: number;  // Selling price of the batch
   created_at: string;
   updated_at: string;
 }
