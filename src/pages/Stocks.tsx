@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Search, Package, AlertCircle, RefreshCcw, ChevronLeft, ChevronRight, X, ChevronDown, Database } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,12 @@ import {
 import { Stock } from "@/components/stock/models/stock.model";
 import { StockService } from "@/components/stock/services/stock.service";
 
+// Performance: Only log in development mode
+const isDev = import.meta.env.DEV;
+const devLog = (...args: any[]) => {
+  if (isDev) console.log(...args);
+};
+
 export default function Stocks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -31,6 +37,7 @@ export default function Stocks() {
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(true);
   const [isLoadingTotalQty, setIsLoadingTotalQty] = useState<boolean>(true);
   const [isLoadingStatusCounts, setIsLoadingStatusCounts] = useState<boolean>(true);
+  const [isMetricsCached, setIsMetricsCached] = useState<boolean>(false);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
 
   // Pagination state
@@ -44,12 +51,12 @@ export default function Stocks() {
   const fetchStocks = async (cursor?: string | null, resetPagination = false) => {
     setIsLoading(true);
     setError(null);
-    console.log('fetchStocks called with cursor:', cursor, 'resetPagination:', resetPagination, 'perPage:', perPage);
+    devLog('fetchStocks called with cursor:', cursor, 'resetPagination:', resetPagination, 'perPage:', perPage);
     
     try {
       // If resetPagination is true, don't use any cursor (start from beginning)
       const apiCursor = resetPagination ? undefined : (cursor || undefined);
-      console.log('Using API cursor:', apiCursor);
+      devLog('Using API cursor:', apiCursor);
       
       const params = {
         per_page: perPage,
@@ -67,9 +74,9 @@ export default function Stocks() {
         data = await StockService.getAllStocksLite(params);
       }
       
-      console.log('Stocks response:', data);
-      console.log('Setting stocks count:', data.data.length);
-      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
+      devLog('Stocks response:', data);
+      devLog('Setting stocks count:', data.data.length);
+      devLog('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -86,7 +93,7 @@ export default function Stocks() {
       if (resetPagination) {
         setCursors([]);
         setCurrentPage(1);
-        console.log('Reset pagination tracking');
+        devLog('Reset pagination tracking');
       }
       
     } catch (error) {
@@ -103,11 +110,29 @@ export default function Stocks() {
 
   // Initial load: fetch metrics (with cache check) + first page
   useEffect(() => {
-    // Fetch stock status counts from dedicated endpoint
-    fetchStockStatusCounts();
+    // Try to load from cache first
+    const cachedMetrics = StockService.getCachedMetrics();
     
-    // Always fetch total stock quantity from dedicated endpoint
-    fetchTotalStockQuantity();
+    if (cachedMetrics) {
+      // Use cached data
+      devLog('Using cached metrics:', cachedMetrics);
+      setTotalItems(cachedMetrics.totalItems);
+      setTotalStockQty(cachedMetrics.totalStockQty);
+      setLowStockCount(cachedMetrics.lowStockCount);
+      setAverageStockCount(cachedMetrics.averageStock || 0);
+      setIsLoadingStatusCounts(false);
+      setIsLoadingTotalQty(false);
+      setIsMetricsCached(true);
+      
+      // Still fetch fresh data in background to update cache
+      fetchStockStatusCounts(true);
+      fetchTotalStockQuantity(true);
+    } else {
+      // No cache, fetch fresh data
+      devLog('No cached metrics found, fetching fresh data');
+      fetchStockStatusCounts();
+      fetchTotalStockQuantity();
+    }
     
     // Always fetch first page of stocks
     fetchStocks(null, true);
@@ -121,15 +146,15 @@ export default function Stocks() {
   // Handle per page change
   const handlePerPageChange = async (value: string) => {
     const newPerPage = parseInt(value);
-    console.log('Changing per page from', perPage, 'to', newPerPage);
+    devLog('Changing per page from', perPage, 'to', newPerPage);
     setPerPage(newPerPage);
     // Reset to first page when changing per page
-    console.log('Resetting pagination to first page');
+    devLog('Resetting pagination to first page');
     
     // Manually call the API with the new perPage value
     setIsLoading(true);
     setError(null);
-    console.log('fetchData called with new perPage:', newPerPage, 'resetPagination: true');
+    devLog('fetchData called with new perPage:', newPerPage, 'resetPagination: true');
     
     try {
       let data: any;
@@ -143,9 +168,9 @@ export default function Stocks() {
         data = await StockService.getAllStocksLite({ per_page: newPerPage, cursor: undefined });
       }
       
-      console.log('Stocks response:', data);
-      console.log('Setting stocks count:', data.data.length);
-      console.log('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
+      devLog('Stocks response:', data);
+      devLog('Setting stocks count:', data.data.length);
+      devLog('Pagination state - next_cursor:', data.next_cursor, 'has_more:', data.has_more);
       
       setStocks(data.data);
       setNextCursor(data.next_cursor || null);
@@ -153,7 +178,7 @@ export default function Stocks() {
       setCurrentCursor(null);
       setCursors([]);
       setCurrentPage(1);
-      console.log('Reset pagination tracking');
+      devLog('Reset pagination tracking');
       
     } catch (error) {
       console.error("Error fetching stocks:", error);
@@ -167,116 +192,161 @@ export default function Stocks() {
     }
   };
 
-  // Handle next page
-  const handleNextPage = () => {
+  // Handle next page - memoized
+  const handleNextPage = useCallback(() => {
     if (hasMore && nextCursor) {
-      console.log('Moving to next page, current cursor:', currentCursor, 'next cursor:', nextCursor);
+      devLog('Moving to next page, current cursor:', currentCursor, 'next cursor:', nextCursor);
       // Store current cursor for back navigation
-      const newCursors = [...cursors];
-      if (currentCursor !== null) {
-        newCursors.push(currentCursor);
-      }
-      setCursors(newCursors);
-      setCurrentPage(currentPage + 1);
+      setCursors(prev => {
+        const newCursors = [...prev];
+        if (currentCursor !== null) {
+          newCursors.push(currentCursor);
+        }
+        return newCursors;
+      });
+      setCurrentPage(prev => prev + 1);
       fetchStocks(nextCursor);
     }
-  };
+  }, [hasMore, nextCursor, currentCursor]);
 
-  // Handle previous page
-  const handlePrevPage = () => {
+  // Handle previous page - memoized
+  const handlePrevPage = useCallback(() => {
     if (currentPage > 1) {
-      const newCursors = [...cursors];
-      const prevCursor = newCursors.pop();
-      console.log('Moving to previous page, current page:', currentPage, 'prev cursor:', prevCursor);
-      setCursors(newCursors);
-      setCurrentPage(currentPage - 1);
-      // If we're going back to page 1, use null cursor
-      fetchStocks(currentPage === 2 ? null : prevCursor || null);
+      setCursors(prev => {
+        const newCursors = [...prev];
+        const prevCursor = newCursors.pop();
+        devLog('Moving to previous page, current page:', currentPage, 'prev cursor:', prevCursor);
+        setCurrentPage(currentPage - 1);
+        // If we're going back to page 1, use null cursor
+        fetchStocks(currentPage === 2 ? null : prevCursor || null);
+        return newCursors;
+      });
     }
-  };
+  }, [currentPage]);
 
   // Fetch total stock quantity from dedicated endpoint
-  const fetchTotalStockQuantity = async () => {
-    setIsLoadingTotalQty(true);
+  const fetchTotalStockQuantity = async (isBackgroundUpdate = false) => {
+    if (!isBackgroundUpdate) {
+      setIsLoadingTotalQty(true);
+      setIsMetricsCached(false);
+    }
+    
     try {
       const totalQty = await StockService.getTotalStockQuantity();
       setTotalStockQty(totalQty);
+      
+      // Update cache
+      const cachedMetrics = StockService.getCachedMetrics();
+      if (cachedMetrics) {
+        StockService.setCachedMetrics({
+          ...cachedMetrics,
+          totalStockQty: totalQty
+        });
+      }
     } catch (error) {
       console.error('Error fetching total stock quantity:', error);
       // Don't update error state here, as this is a background fetch
     } finally {
-      setIsLoadingTotalQty(false);
+      if (!isBackgroundUpdate) {
+        setIsLoadingTotalQty(false);
+      }
     }
   };
 
   // Fetch stock status counts from dedicated endpoint
-  const fetchStockStatusCounts = async () => {
-    setIsLoadingStatusCounts(true);
+  const fetchStockStatusCounts = async (isBackgroundUpdate = false) => {
+    if (!isBackgroundUpdate) {
+      setIsLoadingStatusCounts(true);
+      setIsMetricsCached(false);
+    }
+    
     try {
       const counts = await StockService.getStockStatusCounts();
       setTotalItems(counts.total);
       setLowStockCount(counts.lowStock);
       setAverageStockCount(counts.averageStock);
+      
+      // Update cache with fresh data
+      StockService.setCachedMetrics({
+        totalItems: counts.total,
+        totalStockQty: totalStockQty, // Keep existing value
+        lowStockCount: counts.lowStock,
+        averageStock: counts.averageStock,
+        outOfStockCount: 0 // Not currently tracked
+      });
+      
+      if (isBackgroundUpdate) {
+        devLog('Background metrics update completed');
+      }
     } catch (error) {
       console.error('Error fetching stock status counts:', error);
       // Don't update error state here, as this is a background fetch
     } finally {
-      setIsLoadingStatusCounts(false);
+      if (!isBackgroundUpdate) {
+        setIsLoadingStatusCounts(false);
+      }
     }
   };
 
-  // Handle refresh (including metrics)
-  const handleRefresh = () => {
+  // Handle refresh (including metrics) - memoized to prevent re-creation
+  const handleRefresh = useCallback(() => {
     fetchStocks(currentCursor);
-  };
+  }, [currentCursor]);
 
-  // Handle metrics refresh
-  const handleRefreshMetrics = () => {
+  // Handle metrics refresh - memoized
+  const handleRefreshMetrics = useCallback(() => {
     fetchStockStatusCounts();
     fetchTotalStockQuantity();
-  };
+  }, []);
 
-  // Handle status filter click
-  const handleStatusFilterClick = (filter: 'all' | 'low' | 'average') => {
-    if (statusFilter === filter) {
-      // If clicking the same filter, reset to 'all'
-      setStatusFilter('all');
-    } else {
-      setStatusFilter(filter);
-    }
-  };
+  // Handle status filter click - memoized
+  const handleStatusFilterClick = useCallback((filter: 'all' | 'low' | 'average') => {
+    setStatusFilter(prevFilter => prevFilter === filter ? 'all' : filter);
+  }, []);
 
-  const filteredStocks = stocks.filter(stock =>
-    stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stock.productId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Memoized filtered stocks - only recalculates when stocks or searchTerm changes
+  const filteredStocks = useMemo(() => {
+    if (!searchTerm.trim()) return stocks;
+    
+    const lowerSearch = searchTerm.toLowerCase();
+    return stocks.filter(stock =>
+      stock.name.toLowerCase().includes(lowerSearch) ||
+      stock.productId.toLowerCase().includes(lowerSearch)
+    );
+  }, [stocks, searchTerm]);
 
-  const groupedStocks = filteredStocks.reduce((acc, stock) => {
-    if (!acc[stock.productId]) {
-      acc[stock.productId] = {
-        productId: stock.productId,
-        name: stock.name,
-        batches: []
-      };
-    }
-    acc[stock.productId].batches.push(stock);
-    return acc;
-  }, {} as Record<string, { productId: string; name: string; batches: Stock[] }>);
+  // Memoized grouped stocks - only recalculates when filteredStocks changes
+  const groupedStocksArray = useMemo(() => {
+    const grouped = filteredStocks.reduce((acc, stock) => {
+      if (!acc[stock.productId]) {
+        acc[stock.productId] = {
+          productId: stock.productId,
+          name: stock.name,
+          batches: []
+        };
+      }
+      acc[stock.productId].batches.push(stock);
+      return acc;
+    }, {} as Record<string, { productId: string; name: string; batches: Stock[] }>);
+    
+    return Object.values(grouped);
+  }, [filteredStocks]);
 
-  const groupedStocksArray = Object.values(groupedStocks);
+  // Toggle function - memoized and optimized
+  const toggleProduct = useCallback((productId: string) => {
+    setExpandedProducts(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(productId)) {
+        newExpanded.delete(productId);
+      } else {
+        newExpanded.add(productId);
+      }
+      return newExpanded;
+    });
+  }, []);
 
-  // Toggle function
-  const toggleProduct = (productId: string) => {
-    const newExpanded = new Set(expandedProducts);
-    if (newExpanded.has(productId)) {
-      newExpanded.delete(productId);
-    } else {
-      newExpanded.add(productId);
-    }
-    setExpandedProducts(newExpanded);
-  };
-
-  const getStockStatusBadge = (status: string) => {
+  // Memoized helper functions to prevent recalculation
+  const getStockStatusBadge = useCallback((status: string) => {
     switch (status) {
       case "Out of Stock":
         return <Badge variant="destructive">Out of Stock</Badge>;
@@ -289,19 +359,20 @@ export default function Stocks() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  // Memoized date formatting functions
+  const formatDate = useCallback((dateString: string) => {
     return StockService.formatDate(dateString);
-  };
+  }, []);
 
-  const isExpiringSoon = (expiryDate: string) => {
+  const isExpiringSoon = useCallback((expiryDate: string) => {
     return StockService.isExpiringSoon(expiryDate);
-  };
+  }, []);
 
-  const isExpired = (expiryDate: string) => {
+  const isExpired = useCallback((expiryDate: string) => {
     return StockService.isExpired(expiryDate);
-  };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -309,7 +380,15 @@ export default function Stocks() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Stock Management</h1>
-          <p className="text-muted-foreground mt-1">View and monitor your inventory stock levels</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-muted-foreground">View and monitor your inventory stock levels</p>
+            {isMetricsCached && !isLoadingStatusCounts && !isLoadingTotalQty && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Database className="h-3 w-3" />
+                Cached
+              </Badge>
+            )}
+          </div>
         </div>
         <Button
           variant="outline"

@@ -29,6 +29,7 @@ export interface CachedStockMetrics {
   totalItems: number;
   totalStockQty: number;
   lowStockCount: number;
+  averageStock: number;
   outOfStockCount: number;
   timestamp: number;
 }
