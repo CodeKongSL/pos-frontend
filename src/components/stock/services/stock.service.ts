@@ -3,7 +3,7 @@ import { Stock, PaginatedStockResponse, StockPaginationParams, CachedStockMetric
 // Get API base URL from environment variable with fallback
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://my-go-backend.onrender.com';
 
-const FIND_ALL_STOCKS_URL = `${API_BASE_URL}/FindAllStocks`;
+const FIND_ALL_PRODUCTS_WITH_STOCK_LITE_URL = `${API_BASE_URL}/FindAllProductsWithStockLite`; // NEW - shows all products (with and without batches)
 const FIND_ALL_STOCKS_LITE_URL = `${API_BASE_URL}/FindAllStocksLite`;
 const FIND_ALL_STOCKS_FILTERED_URL = `${API_BASE_URL}/FindAllStocksFiltered`;
 const GET_TOTAL_STOCK_QUANTITY_URL = `${API_BASE_URL}/GetTotalStockQuantity`;
@@ -14,7 +14,7 @@ const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 
 export const StockService = {
   /**
-   * Fetch stocks with lite pagination (faster, no aggregate counts)
+   * Fetch stocks with lite pagination (shows ALL products - with and without batches)
    */
   async getAllStocksLite(params?: StockPaginationParams): Promise<PaginatedStockResponse> {
     try {
@@ -32,7 +32,7 @@ export const StockService = {
         queryParams.append('cursor', params.cursor);
       }
       
-      const url = `${FIND_ALL_STOCKS_LITE_URL}?${queryParams.toString()}`;
+      const url = `${FIND_ALL_PRODUCTS_WITH_STOCK_LITE_URL}?${queryParams.toString()}`;
       console.log('🌐 Making API request to:', url);
       console.log('🔧 Environment API URL:', import.meta.env.VITE_API_URL);
       console.log('🔧 Using API_BASE_URL:', API_BASE_URL);
@@ -131,7 +131,7 @@ export const StockService = {
   },
 
   /**
-   * Fetch stock metrics from /FindAllStocks (with aggregate counts)
+   * Fetch stock metrics from /FindAllProductsWithStockLite (shows all products)
    * This is slower but provides important statistics
    */
   async getStockMetrics(): Promise<{
@@ -141,7 +141,7 @@ export const StockService = {
     outOfStockCount: number;
   }> {
     try {
-      const response = await fetch(`${FIND_ALL_STOCKS_URL}?per_page=1`);
+      const response = await fetch(`${FIND_ALL_PRODUCTS_WITH_STOCK_LITE_URL}?per_page=1`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch stock metrics');
@@ -166,6 +166,7 @@ export const StockService = {
    */
   async getTotalStockQuantity(): Promise<number> {
     try {
+      console.log('🔍 Fetching total stock quantity from:', GET_TOTAL_STOCK_QUANTITY_URL);
       const response = await fetch(GET_TOTAL_STOCK_QUANTITY_URL);
       
       if (!response.ok) {
@@ -173,6 +174,7 @@ export const StockService = {
       }
       
       const data = await response.json();
+      console.log('📊 Total stock quantity response:', data);
       return data.total_stock_quantity || 0;
     } catch (error) {
       console.error('Error fetching total stock quantity:', error);
@@ -187,8 +189,10 @@ export const StockService = {
     total: number;
     lowStock: number;
     averageStock: number;
+    goodStock: number;
   }> {
     try {
+      console.log('🔍 Fetching stock status counts from:', GET_STOCK_STATUS_COUNTS_URL);
       const response = await fetch(GET_STOCK_STATUS_COUNTS_URL);
       
       if (!response.ok) {
@@ -196,10 +200,12 @@ export const StockService = {
       }
       
       const data = await response.json();
+      console.log('📊 Stock status counts response:', data);
       return {
         total: data.total || 0,
         lowStock: data.low_stock || 0,
-        averageStock: data.average_stock || 0
+        averageStock: data.average_stock || 0,
+        goodStock: data.good_stock || 0
       };
     } catch (error) {
       console.error('Error fetching stock status counts:', error);
@@ -255,6 +261,21 @@ export const StockService = {
     if (stockQty < 10) return 'Low Stock';
     if (stockQty < 50) return 'Medium Stock';
     return 'Good Stock';
+  },
+
+  /**
+   * Normalize status values from API (handles both "Low" and "Low Stock" formats)
+   */
+  normalizeStatus(status: string): 'Good Stock' | 'Medium Stock' | 'Low Stock' | 'Out of Stock' | 'Average Stock' {
+    const statusLower = status.toLowerCase();
+    
+    if (statusLower === 'low' || statusLower === 'low stock') return 'Low Stock';
+    if (statusLower === 'average' || statusLower === 'average stock' || statusLower === 'medium stock') return 'Average Stock';
+    if (statusLower === 'good' || statusLower === 'good stock') return 'Good Stock';
+    if (statusLower === 'out of stock') return 'Out of Stock';
+    
+    // Default fallback
+    return status as any;
   },
 
   /**
