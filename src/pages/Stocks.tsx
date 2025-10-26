@@ -763,8 +763,8 @@ export default function Stocks() {
                   <TableHead className="w-12"></TableHead>
                   <TableHead>Product ID</TableHead>
                   <TableHead>Product Name</TableHead>
-                  <TableHead className="text-right">Total Batches</TableHead>
-                  <TableHead className="text-right">Total Quantity</TableHead>
+                  <TableHead className="text-center">Total Batches</TableHead>
+                  <TableHead className="text-center">Total Quantity</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-center w-32">Actions</TableHead>
                 </TableRow>
@@ -829,10 +829,10 @@ export default function Stocks() {
                             </TableCell>
                             <TableCell>{group.productId}</TableCell>
                             <TableCell>{group.name}</TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-center">
                               <Badge variant="outline">{group.batches.length} batch{group.batches.length !== 1 ? 'es' : ''}</Badge>
                             </TableCell>
-                            <TableCell className="text-right font-normal">{totalQty}</TableCell>
+                            <TableCell className="text-center font-normal">{totalQty}</TableCell>
                             <TableCell className="text-center">
                               {getStockStatusBadge(group.batches[0]?.productStatus || group.batches[0]?.status)}
                             </TableCell>
