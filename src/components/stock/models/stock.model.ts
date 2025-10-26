@@ -10,10 +10,11 @@ export interface Stock {
   sellingPrice?: number;  // Selling price of the batch
   created_at: string;
   updated_at: string;
+  productStatus?: string;
 }
 
 export interface PaginatedStockResponse {
-  data: Stock[];
+  productStatus?: string;
   next_cursor?: string;
   has_more: boolean;
   total_count?: number; // Total count from /FindAllStocks
