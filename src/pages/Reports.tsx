@@ -16,6 +16,7 @@ export default function Reports() {
   const [isExpired, setIsExpired] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(undefined);
   const [isRangeReportExpired, setIsRangeReportExpired] = useState(false);
+  const [selectedReturnsMonth, setSelectedReturnsMonth] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     const calculateTimeRemaining = () => {
@@ -138,6 +139,23 @@ export default function Reports() {
 
   const handleDownloadExpiringStocks = () => {
     const downloadUrl = 'https://my-go-backend.onrender.com/GetExpiringStocksReportPDF';
+    
+    // Open download URL in new window
+    window.open(downloadUrl, '_blank');
+  };
+
+  const handleDownloadReturnsReport = () => {
+    if (!selectedReturnsMonth) {
+      alert("Please select a month.");
+      return;
+    }
+
+    // Format month as YYYY-MM
+    const year = selectedReturnsMonth.getFullYear();
+    const month = String(selectedReturnsMonth.getMonth() + 1).padStart(2, '0');
+    const formattedMonth = `${year}-${month}`;
+    
+    const downloadUrl = `https://my-go-backend.onrender.com/GetMonthlyReturnsPDF?month=${formattedMonth}`;
     
     // Open download URL in new window
     window.open(downloadUrl, '_blank');
@@ -273,103 +291,153 @@ export default function Reports() {
       </Card>
 
       {/* Past Reports and Expiring Stocks Section - Side by Side */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="space-y-6">
         {/* Past Reports Section */}
-        <Card className="flex flex-col">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
               Download Past Reports
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 flex-1 flex flex-col">
-            <div className="text-center space-y-4 flex-1 flex flex-col justify-between">
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Select a start date to download sales summary from that date until yesterday
-                </p>
-                
-                <div className="flex flex-col items-center gap-4">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full max-w-[280px] justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedStartDate ? (
-                          format(selectedStartDate, "PPP")
-                        ) : (
-                          <span>Pick a start date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={selectedStartDate}
-                        onSelect={setSelectedStartDate}
-                        disabled={disabledDates}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  {selectedStartDate && (
-                    <div className="text-sm text-muted-foreground">
-                      <p>
-                        Report Period: <span className="font-medium text-foreground">
-                          {format(selectedStartDate, "MMMM d, yyyy")} to {format(getYesterdayDate(), "MMMM d, yyyy")}
-                        </span>
-                      </p>
-                      {isRangeReportExpired && (
-                        <p className="text-destructive font-medium mt-2">
-                          Reports for {format(selectedStartDate, "MMMM yyyy")} have expired
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <Button 
-                    onClick={handleDownloadRangeReport}
-                    disabled={!selectedStartDate || isRangeReportExpired}
-                    className="bg-primary hover:bg-primary-hover px-6 py-5 w-full max-w-[280px]"
-                    size="lg"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Range Report
-                  </Button>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Note: Monthly reports are deleted on the 1st of the following month at 00:00:00
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Select a start date to download sales summary from that date until yesterday
               </p>
+              
+              <div className="flex flex-col items-center gap-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedStartDate ? (
+                        format(selectedStartDate, "PPP")
+                      ) : (
+                        <span>Pick a start date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedStartDate}
+                      onSelect={setSelectedStartDate}
+                      disabled={disabledDates}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {selectedStartDate && (
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      Report Period: <span className="font-medium text-foreground">
+                        {format(selectedStartDate, "MMM d, yyyy")} to {format(getYesterdayDate(), "MMM d, yyyy")}
+                      </span>
+                    </p>
+                    {isRangeReportExpired && (
+                      <p className="text-destructive font-medium mt-2">
+                        Reports for {format(selectedStartDate, "MMMM yyyy")} have expired
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <Button 
+                  onClick={handleDownloadRangeReport}
+                  disabled={!selectedStartDate || isRangeReportExpired}
+                  className="bg-primary hover:bg-primary-hover mx-auto"
+                  size="lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Range Report
+                </Button>
+              </div>
             </div>
+
+            <p className="text-xs text-muted-foreground text-center pt-4 border-t">
+              Note: Monthly reports are deleted on the 1st of the following month at 00:00:00
+            </p>
           </CardContent>
         </Card>
 
         {/* Expiring Stocks Section */}
-        <Card className="flex flex-col">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
               Expiring Stock Report
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex items-center">
-            <div className="text-center space-y-4 w-full">
+          <CardContent className="flex-1 flex flex-col justify-center">
+            <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
                 Download a report of all stocks expiring within the next 3 months
               </p>
               <Button 
                 onClick={handleDownloadExpiringStocks}
-                className="bg-primary hover:bg-primary-hover px-6 py-5 w-full max-w-[280px]"
+                className="bg-primary hover:bg-primary-hover mx-auto"
                 size="lg"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download Expiring Stocks Report
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Customer Returns Section */}
+        <Card className="flex flex-col h-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Monthly Returns Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-center">
+            <div className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Select a month to download customer returns report
+              </p>
+              
+              <div className="flex flex-col items-center gap-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedReturnsMonth ? (
+                        format(selectedReturnsMonth, "MMMM yyyy")
+                      ) : (
+                        <span>Pick a month</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedReturnsMonth}
+                      onSelect={setSelectedReturnsMonth}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Button 
+                  onClick={handleDownloadReturnsReport}
+                  disabled={!selectedReturnsMonth}
+                  className="bg-primary hover:bg-primary-hover mx-auto"
+                  size="lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Returns Report
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
