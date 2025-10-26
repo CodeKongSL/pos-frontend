@@ -765,13 +765,14 @@ export default function Stocks() {
                   <TableHead>Product Name</TableHead>
                   <TableHead className="text-right">Total Batches</TableHead>
                   <TableHead className="text-right">Total Quantity</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center justify-center">
                         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
                         <p className="text-sm text-muted-foreground">Loading stocks...</p>
@@ -780,7 +781,7 @@ export default function Stocks() {
                   </TableRow>
                 ) : groupedStocksArray.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12">
+                    <TableCell colSpan={7} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center">
                         <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
                         <p className="text-lg font-medium text-foreground mb-1">
@@ -832,7 +833,10 @@ export default function Stocks() {
                               <Badge variant="outline">{group.batches.length} batch{group.batches.length !== 1 ? 'es' : ''}</Badge>
                             </TableCell>
                             <TableCell className="text-right font-normal">{totalQty}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
+                              {getStockStatusBadge(group.batches[0]?.productStatus || group.batches[0]?.status)}
+                            </TableCell>
+                            <TableCell className="w-32">
                               <div className="flex items-center justify-center gap-2">
                                 <Button
                                   variant="ghost"
@@ -877,7 +881,7 @@ export default function Stocks() {
                           {/* Batch Rows - Compact Table Format */}
                           {isExpanded && (
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={6} className="p-0">
+                              <TableCell colSpan={7} className="p-0">
                                 <div className="px-4 py-3">
                                   <div className="rounded-lg border bg-background overflow-hidden">
                                     <Table>
@@ -886,7 +890,6 @@ export default function Stocks() {
                                           <TableHead className="h-9 text-xs">Batch ID</TableHead>
                                           <TableHead className="h-9 text-xs">Quantity</TableHead>
                                           <TableHead className="h-9 text-xs">Expiry Date</TableHead>
-                                          <TableHead className="h-9 text-xs">Status</TableHead>
                                           <TableHead className="h-9 text-xs hidden lg:table-cell">Created</TableHead>
                                           <TableHead className="h-9 text-xs hidden lg:table-cell">Updated</TableHead>
                                         </TableRow>
@@ -924,9 +927,6 @@ export default function Stocks() {
                                                   <Badge variant="outline" className="text-xs w-fit text-warning border-warning">Expiring Soon</Badge>
                                                 )}
                                               </div>
-                                            </TableCell>
-                                            <TableCell>
-                                              {getStockStatusBadge(stock.productStatus || stock.status)}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
                                               {formatDate(stock.created_at)}
