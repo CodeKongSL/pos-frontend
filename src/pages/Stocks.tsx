@@ -926,7 +926,7 @@ export default function Stocks() {
                                               </div>
                                             </TableCell>
                                             <TableCell>
-                                              {getStockStatusBadge(stock.status)}
+                                              {getStockStatusBadge(stock.productStatus || stock.status)}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
                                               {formatDate(stock.created_at)}
