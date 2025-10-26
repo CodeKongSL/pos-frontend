@@ -42,22 +42,34 @@ export function ReturnFormDialog({ onSuccess }: ReturnFormDialogProps) {
 
         setIsSubmitting(true);
         try {
-            const totalRefundAmount = selectedProducts.reduce(
-                (total, item) => total + (item.product.sellingPrice * item.quantity),
-                0
-            );
+            // Transform selectedProducts to match API format
+            const products = selectedProducts.map(item => ({
+                productId: item.product.productId,
+                amount: item.quantity,
+                reason: item.condition // Use dropdown value only
+            }));
 
-            const returnData = {
+            // Build payload
+            const payload: any = {
                 customerName,
                 contactNumber,
-                originalBillNumber: billNumber,
-                items: selectedProducts,
-                totalRefundAmount,
-                status: 'pending' as const,
-                notes
+                products
             };
+            if (billNumber) payload.originalBillNumber = billNumber;
+            if (notes) payload.additionalNotes = notes;
 
-            await returnService.createReturn(returnData);
+            // Use direct fetch to the new API endpoint
+            const response = await fetch("https://my-go-backend.onrender.com/returns", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to submit return request");
+            }
 
             toast({
                 title: "Success",
@@ -184,15 +196,7 @@ export function ReturnFormDialog({ onSuccess }: ReturnFormDialogProps) {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Textarea
-                                            placeholder="Return reason"
-                                            value={item.reason}
-                                            onChange={(e) => {
-                                                const newProducts = [...selectedProducts];
-                                                newProducts[index].reason = e.target.value;
-                                                setSelectedProducts(newProducts);
-                                            }}
-                                        />
+                                        {/* Removed free-text reason textarea */}
                                     </div>
                                 </div>
                             ))}
