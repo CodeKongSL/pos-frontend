@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Calendar as CalendarIcon, Clock, History } from "lucide-react";
+import { Download, Calendar as CalendarIcon, Clock, History, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -136,6 +136,13 @@ export default function Reports() {
     window.open(downloadUrl, '_blank');
   };
 
+  const handleDownloadExpiringStocks = () => {
+    const downloadUrl = 'https://my-go-backend.onrender.com/GetExpiringStocksReportPDF';
+    
+    // Open download URL in new window
+    window.open(downloadUrl, '_blank');
+  };
+
   // Get yesterday's date for display
   const getYesterdayDate = () => {
     const yesterday = new Date();
@@ -265,78 +272,108 @@ export default function Reports() {
         </CardContent>
       </Card>
 
-      {/* Past Reports Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            Download Past Reports
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select a start date to download sales summary from that date until yesterday
-            </p>
-            
-            <div className="flex flex-col items-center gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[280px] justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedStartDate ? (
-                      format(selectedStartDate, "PPP")
-                    ) : (
-                      <span>Pick a start date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={selectedStartDate}
-                    onSelect={setSelectedStartDate}
-                    disabled={disabledDates}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+      {/* Past Reports and Expiring Stocks Section - Side by Side */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Past Reports Section */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Download Past Reports
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 flex-1 flex flex-col">
+            <div className="text-center space-y-4 flex-1 flex flex-col justify-between">
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Select a start date to download sales summary from that date until yesterday
+                </p>
+                
+                <div className="flex flex-col items-center gap-4">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full max-w-[280px] justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedStartDate ? (
+                          format(selectedStartDate, "PPP")
+                        ) : (
+                          <span>Pick a start date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedStartDate}
+                        onSelect={setSelectedStartDate}
+                        disabled={disabledDates}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-              {selectedStartDate && (
-                <div className="text-sm text-muted-foreground">
-                  <p>
-                    Report Period: <span className="font-medium text-foreground">
-                      {format(selectedStartDate, "MMMM d, yyyy")} to {format(getYesterdayDate(), "MMMM d, yyyy")}
-                    </span>
-                  </p>
-                  {isRangeReportExpired && (
-                    <p className="text-destructive font-medium mt-2">
-                      Reports for {format(selectedStartDate, "MMMM yyyy")} have expired
-                    </p>
+                  {selectedStartDate && (
+                    <div className="text-sm text-muted-foreground">
+                      <p>
+                        Report Period: <span className="font-medium text-foreground">
+                          {format(selectedStartDate, "MMMM d, yyyy")} to {format(getYesterdayDate(), "MMMM d, yyyy")}
+                        </span>
+                      </p>
+                      {isRangeReportExpired && (
+                        <p className="text-destructive font-medium mt-2">
+                          Reports for {format(selectedStartDate, "MMMM yyyy")} have expired
+                        </p>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
 
+                  <Button 
+                    onClick={handleDownloadRangeReport}
+                    disabled={!selectedStartDate || isRangeReportExpired}
+                    className="bg-primary hover:bg-primary-hover px-6 py-5 w-full max-w-[280px]"
+                    size="lg"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Range Report
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Note: Monthly reports are deleted on the 1st of the following month at 00:00:00
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expiring Stocks Section */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Expiring Stock Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex items-center">
+            <div className="text-center space-y-4 w-full">
+              <p className="text-sm text-muted-foreground">
+                Download a report of all stocks expiring within the next 3 months
+              </p>
               <Button 
-                onClick={handleDownloadRangeReport}
-                disabled={!selectedStartDate || isRangeReportExpired}
-                className="bg-primary hover:bg-primary-hover px-6 py-5"
+                onClick={handleDownloadExpiringStocks}
+                className="bg-primary hover:bg-primary-hover px-6 py-5 w-full max-w-[280px]"
                 size="lg"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download Range Report
+                Download Expiring Stocks Report
               </Button>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              Note: Monthly reports are deleted on the 1st of the following month at 00:00:00
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
