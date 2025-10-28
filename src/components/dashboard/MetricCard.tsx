@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// src/components/dashboard/MetricCard.tsx
 import { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface MetricCardProps {
   title: string;
@@ -8,35 +8,26 @@ interface MetricCardProps {
   icon: LucideIcon;
   trend?: string;
   trendUp?: boolean;
-  className?: string;
 }
 
-export function MetricCard({ 
-  title, 
-  value, 
-  icon: Icon, 
-  trend, 
-  trendUp,
-  className 
-}: MetricCardProps) {
+export function MetricCard({ title, value, icon: Icon, trend, trendUp }: MetricCardProps) {
   return (
-    <Card className={cn("transition-all duration-200 hover:shadow-lg", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6">
-        <CardTitle className="text-sm font-medium text-muted-foreground truncate pr-2">
-          {title}
-        </CardTitle>
-        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
-      </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-0">
-        <div className="text-xl sm:text-2xl font-bold text-foreground">{value}</div>
-        {trend && (
-          <p className={cn(
-            "text-xs mt-1",
-            trendUp ? "text-success" : "text-destructive"
-          )}>
-            {trend}
-          </p>
-        )}
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-2xl font-bold text-foreground">{value}</p>
+          {trend && (
+            <p className={`text-xs ${trendUp ? 'text-success' : 'text-muted-foreground'}`}>
+              {trend}
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

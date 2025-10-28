@@ -1,10 +1,64 @@
+// src/pages/Dashboard.tsx
+import { useState, useEffect } from "react";
 import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { AlertCard } from "@/components/dashboard/AlertCard";
+import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { salesService, formatDateForAPI, formatCurrency, SalesData } from "@/components/dashboard/salesService";
 
 export default function Dashboard() {
+  const [todaySales, setTodaySales] = useState<number>(0);
+  const [salesData, setSalesData] = useState<SalesData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+
+  useEffect(() => {
+    fetchTodaySales();
+  }, []);
+
+  const fetchTodaySales = async () => {
+    try {
+      setIsLoading(true);
+      const today = new Date();
+      // Adjust for GMT+5:30 timezone
+      const offset = 5.5 * 60 * 60 * 1000;
+      const localDate = new Date(today.getTime() + offset);
+      const dateString = formatDateForAPI(localDate);
+      
+      const data = await salesService.getDailySalesSummary(dateString);
+      setTodaySales(data.totalSales);
+      setSalesData(data);
+    } catch (error) {
+      console.error('Failed to fetch today sales:', error);
+      setTodaySales(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSalesCardClick = async () => {
+    setIsModalOpen(true);
+    if (!salesData) {
+      setIsModalLoading(true);
+      try {
+        const today = new Date();
+        const offset = 5.5 * 60 * 60 * 1000;
+        const localDate = new Date(today.getTime() + offset);
+        const dateString = formatDateForAPI(localDate);
+        
+        const data = await salesService.getDailySalesSummary(dateString);
+        setSalesData(data);
+      } catch (error) {
+        console.error('Failed to fetch sales details:', error);
+      } finally {
+        setIsModalLoading(false);
+      }
+    }
+  };
+
   const lowStockAlerts = [
     {
       id: "1",
@@ -55,13 +109,18 @@ export default function Dashboard() {
 
       {/* Key Metrics */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Today Sales"
-          value="Rs. 12,450.00"
-          icon={DollarSign}
-          trend="+12% from yesterday"
-          trendUp={true}
-        />
+        <div 
+          onClick={handleSalesCardClick}
+          className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
+        >
+          <MetricCard
+            title="Today Sales"
+            value={isLoading ? "Loading..." : todaySales.toString()}
+            icon={DollarSign}
+            trend="+12% from yesterday"
+            trendUp={true}
+          />
+        </div>
         <MetricCard
           title="Today GRNs"
           value="Rs. 8,000.00"
@@ -152,6 +211,14 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sales Detail Modal */}
+      <SalesDetailModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        salesData={salesData}
+        isLoading={isModalLoading}
+      />
     </div>
   );
 }
