@@ -1,29 +1,43 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
-import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
+import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { AlertCard } from "@/components/dashboard/AlertCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
+import { StockDetailModal } from "@/components/dashboard/StockDetailModal";
+import { GRNDetailModal } from "@/components/dashboard/GRNDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { salesService, formatDateForAPI, formatCurrency, SalesData } from "@/components/dashboard/salesService";
+import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
+import { dashboardService } from "@/components/dashboard/dashboardService";
 
 export default function Dashboard() {
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [stockQuantity, setStockQuantity] = useState<number>(0);
+  const [grnsCount, setGrnsCount] = useState<number>(0);
+  
+  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(true);
+  const [isStockLoading, setIsStockLoading] = useState(true);
+  const [isGRNLoading, setIsGRNLoading] = useState(true);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [isStockModalLoading, setIsStockModalLoading] = useState(false);
+  const [isGRNModalLoading, setIsGRNModalLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
+    fetchStockQuantity();
+    fetchGRNsCount();
   }, []);
 
   const fetchTodaySales = async () => {
     try {
       setIsLoading(true);
       const today = new Date();
-      // Adjust for GMT+5:30 timezone
       const offset = 5.5 * 60 * 60 * 1000;
       const localDate = new Date(today.getTime() + offset);
       const dateString = formatDateForAPI(localDate);
@@ -39,8 +53,34 @@ export default function Dashboard() {
     }
   };
 
+  const fetchStockQuantity = async () => {
+    try {
+      setIsStockLoading(true);
+      const quantity = await dashboardService.getTotalStockQuantity();
+      setStockQuantity(quantity);
+    } catch (error) {
+      console.error('Failed to fetch stock quantity:', error);
+      setStockQuantity(0);
+    } finally {
+      setIsStockLoading(false);
+    }
+  };
+
+  const fetchGRNsCount = async () => {
+    try {
+      setIsGRNLoading(true);
+      const count = await dashboardService.getTotalGRNsCount();
+      setGrnsCount(count);
+    } catch (error) {
+      console.error('Failed to fetch GRNs count:', error);
+      setGrnsCount(0);
+    } finally {
+      setIsGRNLoading(false);
+    }
+  };
+
   const handleSalesCardClick = async () => {
-    setIsModalOpen(true);
+    setIsSalesModalOpen(true);
     if (!salesData) {
       setIsModalLoading(true);
       try {
@@ -55,6 +95,36 @@ export default function Dashboard() {
         console.error('Failed to fetch sales details:', error);
       } finally {
         setIsModalLoading(false);
+      }
+    }
+  };
+
+  const handleStockCardClick = async () => {
+    setIsStockModalOpen(true);
+    if (stockQuantity === 0 && !isStockLoading) {
+      setIsStockModalLoading(true);
+      try {
+        const quantity = await dashboardService.getTotalStockQuantity();
+        setStockQuantity(quantity);
+      } catch (error) {
+        console.error('Failed to fetch stock details:', error);
+      } finally {
+        setIsStockModalLoading(false);
+      }
+    }
+  };
+
+  const handleGRNCardClick = async () => {
+    setIsGRNModalOpen(true);
+    if (grnsCount === 0 && !isGRNLoading) {
+      setIsGRNModalLoading(true);
+      try {
+        const count = await dashboardService.getTotalGRNsCount();
+        setGrnsCount(count);
+      } catch (error) {
+        console.error('Failed to fetch GRN details:', error);
+      } finally {
+        setIsGRNModalLoading(false);
       }
     }
   };
@@ -115,25 +185,35 @@ export default function Dashboard() {
         >
           <MetricCard
             title="Today Sales"
-            value={isLoading ? "Loading..." : todaySales.toString()}
+            value={isLoading ? "Loading..." : `Rs. ${todaySales.toLocaleString()}`}
             icon={DollarSign}
             trend="+12% from yesterday"
             trendUp={true}
           />
         </div>
-        <MetricCard
-          title="Today GRNs"
-          value="Rs. 8,000.00"
-          icon={ShoppingCart}
-          trend="5 deliveries received"
-          trendUp={true}
-        />
-        <MetricCard
-          title="Today Returns"
-          value="Rs. 1,250.00"
-          icon={RotateCcw}
-          trend="3 return transactions"
-        />
+        <div 
+          onClick={handleStockCardClick}
+          className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
+        >
+          <MetricCard
+            title="Available Stocks"
+            value={isStockLoading ? "Loading..." : stockQuantity.toLocaleString()}
+            icon={ShoppingCart}
+            trend="Total units in stock"
+            trendUp={true}
+          />
+        </div>
+        <div 
+          onClick={handleGRNCardClick}
+          className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
+        >
+          <MetricCard
+            title="Today GRNs"
+            value={isGRNLoading ? "Loading..." : grnsCount.toString()}
+            icon={RotateCcw}
+            trend={`${grnsCount} ${grnsCount === 1 ? 'transaction' : 'transactions'} today`}
+          />
+        </div>
         <MetricCard
           title="Today Profit"
           value="Rs. 3,200.00"
@@ -212,12 +292,26 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Sales Detail Modal */}
+      {/* Modals */}
       <SalesDetailModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isSalesModalOpen}
+        onClose={() => setIsSalesModalOpen(false)}
         salesData={salesData}
         isLoading={isModalLoading}
+      />
+      
+      <StockDetailModal
+        isOpen={isStockModalOpen}
+        onClose={() => setIsStockModalOpen(false)}
+        stockQuantity={stockQuantity}
+        isLoading={isStockModalLoading}
+      />
+      
+      <GRNDetailModal
+        isOpen={isGRNModalOpen}
+        onClose={() => setIsGRNModalOpen(false)}
+        grnsCount={grnsCount}
+        isLoading={isGRNModalLoading}
       />
     </div>
   );

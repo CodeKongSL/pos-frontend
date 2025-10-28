@@ -1,0 +1,47 @@
+// src/components/dashboard/dashboardService.ts
+
+const API_BASE_URL = 'https://my-go-backend.onrender.com';
+
+export interface StockQuantityResponse {
+  total_stock_quantity: number;
+}
+
+export interface GRNsCountResponse {
+  total_grns: number;
+}
+
+class DashboardService {
+  async getTotalStockQuantity(): Promise<number> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/GetTotalStockQuantity`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: StockQuantityResponse = await response.json();
+      return data.total_stock_quantity;
+    } catch (error) {
+      console.error('Error fetching total stock quantity:', error);
+      throw error;
+    }
+  }
+
+  async getTotalGRNsCount(): Promise<number> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/GetTotalGRNsCount`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: GRNsCountResponse = await response.json();
+      return data.total_grns;
+    } catch (error) {
+      console.error('Error fetching total GRNs count:', error);
+      throw error;
+    }
+  }
+}
+
+export const dashboardService = new DashboardService();
