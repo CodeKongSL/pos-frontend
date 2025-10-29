@@ -6,20 +6,31 @@ import { AlertCard } from "@/components/dashboard/AlertCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
 import { StockDetailModal } from "@/components/dashboard/StockDetailModal";
 import { GRNDetailModal } from "@/components/dashboard/GRNDetailModal";
+import { PopularProductsDetailModal } from "@/components/dashboard/PopularProductsDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
 import { dashboardService } from "@/components/dashboard/dashboardService";
+
+interface TopSellingItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+}
 
 export default function Dashboard() {
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
   const [grnsCount, setGrnsCount] = useState<number>(0);
+  const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
+  const [isPopularProductsModalOpen, setIsPopularProductsModalOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isStockLoading, setIsStockLoading] = useState(true);
@@ -27,6 +38,7 @@ export default function Dashboard() {
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [isStockModalLoading, setIsStockModalLoading] = useState(false);
   const [isGRNModalLoading, setIsGRNModalLoading] = useState(false);
+  const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
@@ -45,9 +57,11 @@ export default function Dashboard() {
       const data = await salesService.getDailySalesSummary(dateString);
       setTodaySales(data.totalSales);
       setSalesData(data);
+      setTopSellingItems(data.topSellingItems || []);
     } catch (error) {
       console.error('Failed to fetch today sales:', error);
       setTodaySales(0);
+      setTopSellingItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +143,30 @@ export default function Dashboard() {
     }
   };
 
+  const handlePopularProductsClick = async () => {
+    setIsPopularProductsModalOpen(true);
+    if (topSellingItems.length === 0 && !isLoading) {
+      setIsPopularProductsLoading(true);
+      try {
+        const today = new Date();
+        const offset = 5.5 * 60 * 60 * 1000;
+        const localDate = new Date(today.getTime() + offset);
+        const dateString = formatDateForAPI(localDate);
+        
+        const data = await salesService.getDailySalesSummary(dateString);
+        setTopSellingItems(data.topSellingItems || []);
+      } catch (error) {
+        console.error('Failed to fetch popular products:', error);
+      } finally {
+        setIsPopularProductsLoading(false);
+      }
+    }
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return `Rs. ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const lowStockAlerts = [
     {
       id: "1",
@@ -149,13 +187,8 @@ export default function Dashboard() {
     }
   ];
 
-  const popularProducts = [
-    { name: "Pepsi 500ml", sold: 45, revenue: "Rs. 8,100.00" },
-    { name: "Milo 200ml", sold: 32, revenue: "Rs. 4,800.00" },
-    { name: "Anchor Milk Powder", sold: 28, revenue: "Rs. 26,600.00" },
-    { name: "Sunlight Soap", sold: 25, revenue: "Rs. 3,000.00" },
-    { name: "Dettol Handwash", sold: 18, revenue: "Rs. 6,120.00" }
-  ];
+  // Get top 5 items for display
+  const displayTopItems = topSellingItems.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -237,7 +270,10 @@ export default function Dashboard() {
         />
 
         {/* Popular Products */}
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handlePopularProductsClick}
+        >
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Package className="h-5 w-5 text-accent" />
@@ -245,22 +281,32 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 sm:p-6">
-            {popularProducts.map((product, index) => (
-              <div key={product.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md bg-secondary gap-2 sm:gap-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-xs text-muted-foreground">{product.sold} units sold</p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right ml-9 sm:ml-0">
-                  <p className="text-sm font-medium text-accent">{product.revenue}</p>
-                </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ))}
+            ) : displayTopItems.length > 0 ? (
+              displayTopItems.map((item, index) => (
+                <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md bg-secondary gap-2 sm:gap-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{item.productName}</p>
+                      <p className="text-xs text-muted-foreground">{item.quantity} units sold</p>
+                    </div>
+                  </div>
+                  <div className="text-left sm:text-right ml-9 sm:ml-0">
+                    <p className="text-sm font-medium text-accent">{formatCurrency(item.totalAmount)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No products sold today
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -312,6 +358,13 @@ export default function Dashboard() {
         onClose={() => setIsGRNModalOpen(false)}
         grnsCount={grnsCount}
         isLoading={isGRNModalLoading}
+      />
+
+      <PopularProductsDetailModal
+        isOpen={isPopularProductsModalOpen}
+        onClose={() => setIsPopularProductsModalOpen(false)}
+        topSellingItems={topSellingItems}
+        isLoading={isPopularProductsLoading}
       />
     </div>
   );
