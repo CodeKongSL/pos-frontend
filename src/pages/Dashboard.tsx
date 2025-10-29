@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   const [totalProducts, setTotalProducts] = useState<number>(0);
   const [totalCategories, setTotalCategories] = useState<number>(0);
+  const [totalBrands, setTotalBrands] = useState<number>(0);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -57,6 +58,7 @@ export default function Dashboard() {
   const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
   const [isTotalProductsLoading, setIsTotalProductsLoading] = useState(true);
   const [isTotalCategoriesLoading, setIsTotalCategoriesLoading] = useState(true);
+  const [isTotalBrandsLoading, setIsTotalBrandsLoading] = useState(true);
 
   useEffect(() => {
     fetchTodaySales();
@@ -67,6 +69,7 @@ export default function Dashboard() {
     fetchExpiringStocks();
     fetchTotalProducts();
     fetchTotalCategories();
+    fetchTotalBrands();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -177,6 +180,18 @@ export default function Dashboard() {
       setTotalCategories(0);
     } finally {
       setIsTotalCategoriesLoading(false);
+    }
+  };
+  const fetchTotalBrands = async () => {
+    try {
+      setIsTotalBrandsLoading(true);
+      const count = await dashboardService.getTotalBrands();
+      setTotalBrands(count);
+    } catch (error) {
+      console.error('Failed to fetch total brands:', error);
+      setTotalBrands(0);
+    } finally {
+      setIsTotalBrandsLoading(false);
     }
   };
 
@@ -553,8 +568,8 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-warning">{lowStockProducts.length}</p>
-              <p className="text-sm text-muted-foreground">Low Stock Items</p>
+              <p className="text-2xl font-bold text-warning">{isTotalBrandsLoading ? "..." : totalBrands}</p>
+              <p className="text-sm text-muted-foreground">Total Brands</p>
             </div>
             <div className="space-y-2">
               <p className="text-2xl font-bold text-success">{isTotalCategoriesLoading ? "..." : totalCategories}</p>
