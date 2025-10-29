@@ -1,17 +1,17 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
-import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package } from "lucide-react";
+import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
-import { AlertCard } from "@/components/dashboard/AlertCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
 import { StockDetailModal } from "@/components/dashboard/StockDetailModal";
 import { GRNDetailModal } from "@/components/dashboard/GRNDetailModal";
 import { PopularProductsDetailModal } from "@/components/dashboard/PopularProductsDetailModal";
 import { ProfitDetailModal } from "@/components/dashboard/ProfitDetailModal";
+import { LowStockDetailModal } from "@/components/dashboard/LowStockDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
-import { dashboardService, ProfitResponse } from "@/components/dashboard/dashboardService";
+import { dashboardService, ProfitResponse, LowStockProduct } from "@/components/dashboard/dashboardService";
 
 interface TopSellingItem {
   productId: string;
@@ -28,28 +28,33 @@ export default function Dashboard() {
   const [grnsCount, setGrnsCount] = useState<number>(0);
   const [profitData, setProfitData] = useState<ProfitResponse | null>(null);
   const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
   const [isPopularProductsModalOpen, setIsPopularProductsModalOpen] = useState(false);
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
+  const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isStockLoading, setIsStockLoading] = useState(true);
   const [isGRNLoading, setIsGRNLoading] = useState(true);
   const [isProfitLoading, setIsProfitLoading] = useState(true);
+  const [isLowStockLoading, setIsLowStockLoading] = useState(true);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [isStockModalLoading, setIsStockModalLoading] = useState(false);
   const [isGRNModalLoading, setIsGRNModalLoading] = useState(false);
   const [isProfitModalLoading, setIsProfitModalLoading] = useState(false);
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
+  const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
     fetchStockQuantity();
     fetchGRNsCount();
     fetchProfitData();
+    fetchLowStockProducts();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -109,6 +114,19 @@ export default function Dashboard() {
       setProfitData(null);
     } finally {
       setIsProfitLoading(false);
+    }
+  };
+
+  const fetchLowStockProducts = async () => {
+    try {
+      setIsLowStockLoading(true);
+      const products = await dashboardService.getLowStockProducts();
+      setLowStockProducts(products);
+    } catch (error) {
+      console.error('Failed to fetch low stock products:', error);
+      setLowStockProducts([]);
+    } finally {
+      setIsLowStockLoading(false);
     }
   };
 
@@ -197,19 +215,41 @@ export default function Dashboard() {
     }
   };
 
+  const handleLowStockCardClick = async () => {
+    setIsLowStockModalOpen(true);
+    if (lowStockProducts.length === 0 && !isLowStockLoading) {
+      setIsLowStockModalLoading(true);
+      try {
+        const products = await dashboardService.getLowStockProducts();
+        setLowStockProducts(products);
+      } catch (error) {
+        console.error('Failed to fetch low stock products:', error);
+      } finally {
+        setIsLowStockModalLoading(false);
+      }
+    }
+  };
+
   const formatCurrency = (amount: number): string => {
     return `Rs. ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const lowStockAlerts = [
-    {
-      id: "1",
-      title: "Pepsi 500ml",
-      message: "Only 2 items left in stock",
-      type: "warning" as const,
-      date: "Today, 2:30 PM"
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today, ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-  ];
+  };
 
   const expiredAlerts = [
     {
@@ -220,6 +260,9 @@ export default function Dashboard() {
       date: "2 days ago"
     }
   ];
+
+  // Get top 5 low stock items for card display
+  const displayLowStockItems = lowStockProducts.slice(0, 5);
 
   // Get top 5 items for display
   const displayTopItems = topSellingItems.slice(0, 5);
@@ -297,16 +340,82 @@ export default function Dashboard() {
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
         {/* Low Stock Alerts */}
-        <AlertCard
-          title="Low Stock Alerts"
-          alerts={lowStockAlerts}
-        />
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handleLowStockCardClick}
+        >
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Low Stock Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 sm:p-6">
+            {isLowStockLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : displayLowStockItems.length > 0 ? (
+              displayLowStockItems.map((product) => (
+                <div key={product.productId} className="flex items-start gap-3 p-3 rounded-md bg-warning/5 border border-warning/20">
+                  <AlertTriangle className="h-4 w-4 text-warning mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                      <Badge variant={product.stockQty <= 3 ? "destructive" : "outline"} className="text-xs flex-shrink-0">
+                        {product.stockQty <= 3 ? "Critical" : "Warning"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Only {product.stockQty} {product.stockQty === 1 ? 'item' : 'items'} left in stock
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDate(product.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No low stock alerts
+              </div>
+            )}
+            {lowStockProducts.length > 5 && (
+              <div className="text-center pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  +{lowStockProducts.length - 5} more items. Click to view all
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Expired Items */}
-        <AlertCard
-          title="Expired Items"
-          alerts={expiredAlerts}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Expired Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 sm:p-6">
+            {expiredAlerts.map((alert) => (
+              <div key={alert.id} className="flex items-start gap-3 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                <AlertTriangle className="h-4 w-4 text-destructive mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-sm font-medium text-foreground truncate">{alert.title}</p>
+                    <Badge variant="destructive" className="text-xs flex-shrink-0">
+                      Critical
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{alert.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{alert.date}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
         {/* Popular Products */}
         <Card 
@@ -362,7 +471,7 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-warning">12</p>
+              <p className="text-2xl font-bold text-warning">{lowStockProducts.length}</p>
               <p className="text-sm text-muted-foreground">Low Stock Items</p>
             </div>
             <div className="space-y-2">
@@ -411,6 +520,13 @@ export default function Dashboard() {
         onClose={() => setIsProfitModalOpen(false)}
         profitData={profitData}
         isLoading={isProfitModalLoading}
+      />
+
+      <LowStockDetailModal
+        isOpen={isLowStockModalOpen}
+        onClose={() => setIsLowStockModalOpen(false)}
+        lowStockProducts={lowStockProducts}
+        isLoading={isLowStockModalLoading}
       />
     </div>
   );
