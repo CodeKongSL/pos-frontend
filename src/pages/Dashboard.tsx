@@ -1,5 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
@@ -23,6 +24,7 @@ interface TopSellingItem {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
@@ -340,6 +342,10 @@ export default function Dashboard() {
   // Get top 5 items for display
   const displayTopItems = topSellingItems.slice(0, 5);
 
+  const handleTotalProductsClick = () => {
+    navigate("/products");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -563,7 +569,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div className="space-y-2">
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleTotalProductsClick} title="View all products">
               <p className="text-2xl font-bold text-primary">{isTotalProductsLoading ? "..." : totalProducts}</p>
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
