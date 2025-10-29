@@ -1,5 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
@@ -23,6 +24,7 @@ interface TopSellingItem {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
@@ -32,6 +34,9 @@ export default function Dashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
   const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
+  const [totalProducts, setTotalProducts] = useState<number>(0);
+  const [totalCategories, setTotalCategories] = useState<number>(0);
+  const [totalBrands, setTotalBrands] = useState<number>(0);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -53,6 +58,9 @@ export default function Dashboard() {
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
   const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
   const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
+  const [isTotalProductsLoading, setIsTotalProductsLoading] = useState(true);
+  const [isTotalCategoriesLoading, setIsTotalCategoriesLoading] = useState(true);
+  const [isTotalBrandsLoading, setIsTotalBrandsLoading] = useState(true);
 
   useEffect(() => {
     fetchTodaySales();
@@ -61,6 +69,9 @@ export default function Dashboard() {
     fetchProfitData();
     fetchLowStockProducts();
     fetchExpiringStocks();
+    fetchTotalProducts();
+    fetchTotalCategories();
+    fetchTotalBrands();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -145,6 +156,44 @@ export default function Dashboard() {
       setExpiringStocks([]);
     } finally {
       setIsExpiringStocksLoading(false);
+    }
+  };
+
+  const fetchTotalProducts = async () => {
+    try {
+      setIsTotalProductsLoading(true);
+      const count = await dashboardService.getTotalProducts();
+      setTotalProducts(count);
+    } catch (error) {
+      console.error('Failed to fetch total products:', error);
+      setTotalProducts(0);
+    } finally {
+      setIsTotalProductsLoading(false);
+    }
+  };
+
+  const fetchTotalCategories = async () => {
+    try {
+      setIsTotalCategoriesLoading(true);
+      const count = await dashboardService.getTotalCategories();
+      setTotalCategories(count);
+    } catch (error) {
+      console.error('Failed to fetch total categories:', error);
+      setTotalCategories(0);
+    } finally {
+      setIsTotalCategoriesLoading(false);
+    }
+  };
+  const fetchTotalBrands = async () => {
+    try {
+      setIsTotalBrandsLoading(true);
+      const count = await dashboardService.getTotalBrands();
+      setTotalBrands(count);
+    } catch (error) {
+      console.error('Failed to fetch total brands:', error);
+      setTotalBrands(0);
+    } finally {
+      setIsTotalBrandsLoading(false);
     }
   };
 
@@ -292,6 +341,18 @@ export default function Dashboard() {
 
   // Get top 5 items for display
   const displayTopItems = topSellingItems.slice(0, 5);
+
+  const handleTotalProductsClick = () => {
+    navigate("/products");
+  };
+
+  const handleTotalBrandsClick = () => {
+    navigate("/brands");
+  };
+
+  const handleTotalCategoriesClick = () => {
+    navigate("/categories");
+  };
 
   return (
     <div className="space-y-6">
@@ -516,17 +577,17 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div className="space-y-2">
-              <p className="text-2xl font-bold text-primary">156</p>
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleTotalProductsClick} title="View all products">
+              <p className="text-2xl font-bold text-primary">{isTotalProductsLoading ? "..." : totalProducts}</p>
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold text-warning">{lowStockProducts.length}</p>
-              <p className="text-sm text-muted-foreground">Low Stock Items</p>
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleTotalBrandsClick} title="View all brands">
+              <p className="text-2xl font-bold text-warning">{isTotalBrandsLoading ? "..." : totalBrands}</p>
+              <p className="text-sm text-muted-foreground">Total Brands</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold text-success">89%</p>
-              <p className="text-sm text-muted-foreground">Stock Health</p>
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleTotalCategoriesClick} title="View all categories">
+              <p className="text-2xl font-bold text-success">{isTotalCategoriesLoading ? "..." : totalCategories}</p>
+              <p className="text-sm text-muted-foreground">Total Categories</p>
             </div>
             <div className="space-y-2">
               <p className="text-2xl font-bold text-accent">25</p>
