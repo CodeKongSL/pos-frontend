@@ -46,14 +46,14 @@ export function GRNDetailModal({
               </div>
 
               <div className="rounded-lg border p-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <span className="text-sm font-medium text-success">Active</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Last Updated</span>
-                  <span className="text-sm font-medium">Just now</span>
-                </div>
+                <button
+                  className="w-full mt-2 bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary-hover transition-colors text-center font-medium"
+                  onClick={() => {
+                    window.location.href = '/grn';
+                  }}
+                >
+                  Go to GRN page
+                </button>
               </div>
 
               {grnsCount === 0 && (
