@@ -7,10 +7,11 @@ import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
 import { StockDetailModal } from "@/components/dashboard/StockDetailModal";
 import { GRNDetailModal } from "@/components/dashboard/GRNDetailModal";
 import { PopularProductsDetailModal } from "@/components/dashboard/PopularProductsDetailModal";
+import { ProfitDetailModal } from "@/components/dashboard/ProfitDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
-import { dashboardService } from "@/components/dashboard/dashboardService";
+import { dashboardService, ProfitResponse } from "@/components/dashboard/dashboardService";
 
 interface TopSellingItem {
   productId: string;
@@ -25,25 +26,30 @@ export default function Dashboard() {
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
   const [grnsCount, setGrnsCount] = useState<number>(0);
+  const [profitData, setProfitData] = useState<ProfitResponse | null>(null);
   const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
   const [isPopularProductsModalOpen, setIsPopularProductsModalOpen] = useState(false);
+  const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isStockLoading, setIsStockLoading] = useState(true);
   const [isGRNLoading, setIsGRNLoading] = useState(true);
+  const [isProfitLoading, setIsProfitLoading] = useState(true);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [isStockModalLoading, setIsStockModalLoading] = useState(false);
   const [isGRNModalLoading, setIsGRNModalLoading] = useState(false);
+  const [isProfitModalLoading, setIsProfitModalLoading] = useState(false);
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
     fetchStockQuantity();
     fetchGRNsCount();
+    fetchProfitData();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -93,6 +99,19 @@ export default function Dashboard() {
     }
   };
 
+  const fetchProfitData = async () => {
+    try {
+      setIsProfitLoading(true);
+      const data = await dashboardService.getProfitData();
+      setProfitData(data);
+    } catch (error) {
+      console.error('Failed to fetch profit data:', error);
+      setProfitData(null);
+    } finally {
+      setIsProfitLoading(false);
+    }
+  };
+
   const handleSalesCardClick = async () => {
     setIsSalesModalOpen(true);
     if (!salesData) {
@@ -139,6 +158,21 @@ export default function Dashboard() {
         console.error('Failed to fetch GRN details:', error);
       } finally {
         setIsGRNModalLoading(false);
+      }
+    }
+  };
+
+  const handleProfitCardClick = async () => {
+    setIsProfitModalOpen(true);
+    if (!profitData && !isProfitLoading) {
+      setIsProfitModalLoading(true);
+      try {
+        const data = await dashboardService.getProfitData();
+        setProfitData(data);
+      } catch (error) {
+        console.error('Failed to fetch profit details:', error);
+      } finally {
+        setIsProfitModalLoading(false);
       }
     }
   };
@@ -241,19 +275,24 @@ export default function Dashboard() {
           className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
         >
           <MetricCard
-            title="Today GRNs"
+            title="Total GRNs"
             value={isGRNLoading ? "Loading..." : grnsCount.toString()}
             icon={RotateCcw}
             trend={`${grnsCount} ${grnsCount === 1 ? 'transaction' : 'transactions'} today`}
           />
         </div>
-        <MetricCard
-          title="Today Profit"
-          value="Rs. 3,200.00"
-          icon={TrendingUp}
-          trend="+8% from yesterday"
-          trendUp={true}
-        />
+        <div 
+          onClick={handleProfitCardClick}
+          className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
+        >
+          <MetricCard
+            title="Expected Profit"
+            value={isProfitLoading ? "Loading..." : profitData ? formatCurrency(profitData.target_profit) : "Rs. 0.00"}
+            icon={TrendingUp}
+            trend="Click for details"
+            trendUp={true}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
@@ -365,6 +404,13 @@ export default function Dashboard() {
         onClose={() => setIsPopularProductsModalOpen(false)}
         topSellingItems={topSellingItems}
         isLoading={isPopularProductsLoading}
+      />
+
+      <ProfitDetailModal
+        isOpen={isProfitModalOpen}
+        onClose={() => setIsProfitModalOpen(false)}
+        profitData={profitData}
+        isLoading={isProfitModalLoading}
       />
     </div>
   );

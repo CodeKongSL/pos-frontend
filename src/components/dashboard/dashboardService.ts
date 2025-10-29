@@ -10,6 +10,12 @@ export interface GRNsCountResponse {
   total_grns: number;
 }
 
+export interface ProfitResponse {
+  sales_target: number;
+  target_profit: number;
+  total_spend: number;
+}
+
 class DashboardService {
   async getTotalStockQuantity(): Promise<number> {
     try {
@@ -39,6 +45,22 @@ class DashboardService {
       return data.total_grns;
     } catch (error) {
       console.error('Error fetching total GRNs count:', error);
+      throw error;
+    }
+  }
+
+  async getProfitData(): Promise<ProfitResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/CalculateTotalCost`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: ProfitResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching profit data:', error);
       throw error;
     }
   }

@@ -26,7 +26,7 @@ export function GRNDetailModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <RotateCcw className="h-6 w-6 text-primary" />
-            Today's GRNs Details
+            Total GRNs Details
           </DialogTitle>
         </DialogHeader>
 
@@ -38,10 +38,10 @@ export function GRNDetailModal({
           ) : grnsCount !== null ? (
             <div className="space-y-4">
               <div className="rounded-lg bg-secondary p-4">
-                <p className="text-sm text-muted-foreground mb-2">Total GRNs Today</p>
+                <p className="text-sm text-muted-foreground mb-2">Total GRNs</p>
                 <p className="text-3xl font-bold text-primary">{grnsCount}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {grnsCount === 1 ? 'transaction' : 'transactions'} recorded today
+                  {grnsCount === 1 ? 'transaction' : 'transactions'} recorded
                 </p>
               </div>
 
