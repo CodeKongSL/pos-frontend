@@ -58,6 +58,10 @@ export interface ExpiringStocksResponse {
   timezone: string;
 }
 
+export interface TotalProductsResponse {
+  total_products: number;
+}
+
 class DashboardService {
   async getTotalStockQuantity(): Promise<number> {
     try {
@@ -134,6 +138,21 @@ class DashboardService {
       return data;
     } catch (error) {
       console.error('Error fetching expiring stocks:', error);
+      throw error;
+    }
+  }
+  async getTotalProducts(): Promise<number> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/GetTotalProducts`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: TotalProductsResponse = await response.json();
+      return data.total_products;
+    } catch (error) {
+      console.error('Error fetching total products:', error);
       throw error;
     }
   }

@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
   const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
+  const [totalProducts, setTotalProducts] = useState<number>(0);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
   const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
   const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
+  const [isTotalProductsLoading, setIsTotalProductsLoading] = useState(true);
 
   useEffect(() => {
     fetchTodaySales();
@@ -61,6 +63,7 @@ export default function Dashboard() {
     fetchProfitData();
     fetchLowStockProducts();
     fetchExpiringStocks();
+    fetchTotalProducts();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -145,6 +148,19 @@ export default function Dashboard() {
       setExpiringStocks([]);
     } finally {
       setIsExpiringStocksLoading(false);
+    }
+  };
+
+  const fetchTotalProducts = async () => {
+    try {
+      setIsTotalProductsLoading(true);
+      const count = await dashboardService.getTotalProducts();
+      setTotalProducts(count);
+    } catch (error) {
+      console.error('Failed to fetch total products:', error);
+      setTotalProducts(0);
+    } finally {
+      setIsTotalProductsLoading(false);
     }
   };
 
@@ -517,7 +533,7 @@ export default function Dashboard() {
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-primary">156</p>
+              <p className="text-2xl font-bold text-primary">{isTotalProductsLoading ? "..." : totalProducts}</p>
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
             <div className="space-y-2">
@@ -526,7 +542,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2">
               <p className="text-2xl font-bold text-success">89%</p>
-              <p className="text-sm text-muted-foreground">Stock Health</p>
+              <p className="text-sm text-muted-foreground">Total Categories</p>
             </div>
             <div className="space-y-2">
               <p className="text-2xl font-bold text-accent">25</p>
