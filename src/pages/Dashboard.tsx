@@ -346,6 +346,10 @@ export default function Dashboard() {
     navigate("/products");
   };
 
+  const handleTotalBrandsClick = () => {
+    navigate("/brands");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -573,7 +577,7 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-primary">{isTotalProductsLoading ? "..." : totalProducts}</p>
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleTotalBrandsClick} title="View all brands">
               <p className="text-2xl font-bold text-warning">{isTotalBrandsLoading ? "..." : totalBrands}</p>
               <p className="text-sm text-muted-foreground">Total Brands</p>
             </div>
