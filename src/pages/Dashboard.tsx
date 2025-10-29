@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
   const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   const [totalProducts, setTotalProducts] = useState<number>(0);
+  const [totalCategories, setTotalCategories] = useState<number>(0);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -55,6 +56,7 @@ export default function Dashboard() {
   const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
   const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
   const [isTotalProductsLoading, setIsTotalProductsLoading] = useState(true);
+  const [isTotalCategoriesLoading, setIsTotalCategoriesLoading] = useState(true);
 
   useEffect(() => {
     fetchTodaySales();
@@ -64,6 +66,7 @@ export default function Dashboard() {
     fetchLowStockProducts();
     fetchExpiringStocks();
     fetchTotalProducts();
+    fetchTotalCategories();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -161,6 +164,19 @@ export default function Dashboard() {
       setTotalProducts(0);
     } finally {
       setIsTotalProductsLoading(false);
+    }
+  };
+
+  const fetchTotalCategories = async () => {
+    try {
+      setIsTotalCategoriesLoading(true);
+      const count = await dashboardService.getTotalCategories();
+      setTotalCategories(count);
+    } catch (error) {
+      console.error('Failed to fetch total categories:', error);
+      setTotalCategories(0);
+    } finally {
+      setIsTotalCategoriesLoading(false);
     }
   };
 
@@ -541,7 +557,7 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Low Stock Items</p>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-success">89%</p>
+              <p className="text-2xl font-bold text-success">{isTotalCategoriesLoading ? "..." : totalCategories}</p>
               <p className="text-sm text-muted-foreground">Total Categories</p>
             </div>
             <div className="space-y-2">

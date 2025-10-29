@@ -62,6 +62,10 @@ export interface TotalProductsResponse {
   total_products: number;
 }
 
+export interface CategoriesResponse {
+  total: number;
+}
+
 class DashboardService {
   async getTotalStockQuantity(): Promise<number> {
     try {
@@ -153,6 +157,22 @@ class DashboardService {
       return data.total_products;
     } catch (error) {
       console.error('Error fetching total products:', error);
+      throw error;
+    }
+  }
+
+  async getTotalCategories(): Promise<number> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/FindAllCategory`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: CategoriesResponse = await response.json();
+      return data.total;
+    } catch (error) {
+      console.error('Error fetching total categories:', error);
       throw error;
     }
   }
