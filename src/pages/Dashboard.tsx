@@ -1,37 +1,66 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
-import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package } from "lucide-react";
+import { DollarSign, ShoppingCart, RotateCcw, TrendingUp, Package, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
-import { AlertCard } from "@/components/dashboard/AlertCard";
 import { SalesDetailModal } from "@/components/dashboard/SalesDetailModal";
 import { StockDetailModal } from "@/components/dashboard/StockDetailModal";
 import { GRNDetailModal } from "@/components/dashboard/GRNDetailModal";
+import { PopularProductsDetailModal } from "@/components/dashboard/PopularProductsDetailModal";
+import { ProfitDetailModal } from "@/components/dashboard/ProfitDetailModal";
+import { LowStockDetailModal } from "@/components/dashboard/LowStockDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
-import { dashboardService } from "@/components/dashboard/dashboardService";
+import { dashboardService, ProfitResponse, LowStockProduct, ExpiringStock, ExpiringStocksResponse } from "@/components/dashboard/dashboardService";
+import { ExpiringStocksDetailModal } from "@/components/dashboard/ExpiringStocksDetailModal";
+
+interface TopSellingItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+}
 
 export default function Dashboard() {
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
   const [grnsCount, setGrnsCount] = useState<number>(0);
+  const [profitData, setProfitData] = useState<ProfitResponse | null>(null);
+  const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
+  const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
+  const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
+  const [isPopularProductsModalOpen, setIsPopularProductsModalOpen] = useState(false);
+  const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
+  const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
+  const [isExpiringStocksModalOpen, setIsExpiringStocksModalOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isStockLoading, setIsStockLoading] = useState(true);
   const [isGRNLoading, setIsGRNLoading] = useState(true);
+  const [isProfitLoading, setIsProfitLoading] = useState(true);
+  const [isLowStockLoading, setIsLowStockLoading] = useState(true);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [isStockModalLoading, setIsStockModalLoading] = useState(false);
   const [isGRNModalLoading, setIsGRNModalLoading] = useState(false);
+  const [isProfitModalLoading, setIsProfitModalLoading] = useState(false);
+  const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
+  const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
+  const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
     fetchStockQuantity();
     fetchGRNsCount();
+    fetchProfitData();
+    fetchLowStockProducts();
+    fetchExpiringStocks();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -45,9 +74,11 @@ export default function Dashboard() {
       const data = await salesService.getDailySalesSummary(dateString);
       setTodaySales(data.totalSales);
       setSalesData(data);
+      setTopSellingItems(data.topSellingItems || []);
     } catch (error) {
       console.error('Failed to fetch today sales:', error);
       setTodaySales(0);
+      setTopSellingItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -76,6 +107,44 @@ export default function Dashboard() {
       setGrnsCount(0);
     } finally {
       setIsGRNLoading(false);
+    }
+  };
+
+  const fetchProfitData = async () => {
+    try {
+      setIsProfitLoading(true);
+      const data = await dashboardService.getProfitData();
+      setProfitData(data);
+    } catch (error) {
+      console.error('Failed to fetch profit data:', error);
+      setProfitData(null);
+    } finally {
+      setIsProfitLoading(false);
+    }
+  };
+
+  const fetchLowStockProducts = async () => {
+    try {
+      setIsLowStockLoading(true);
+      const products = await dashboardService.getLowStockProducts();
+      setLowStockProducts(products);
+    } catch (error) {
+      console.error('Failed to fetch low stock products:', error);
+      setLowStockProducts([]);
+    } finally {
+      setIsLowStockLoading(false);
+    }
+  };
+  const fetchExpiringStocks = async () => {
+    try {
+      setIsExpiringStocksLoading(true);
+      const data = await dashboardService.getExpiringStocks();
+      setExpiringStocks(data.expiring_stocks);
+    } catch (error) {
+      console.error('Failed to fetch expiring stocks:', error);
+      setExpiringStocks([]);
+    } finally {
+      setIsExpiringStocksLoading(false);
     }
   };
 
@@ -129,33 +198,100 @@ export default function Dashboard() {
     }
   };
 
-  const lowStockAlerts = [
-    {
-      id: "1",
-      title: "Pepsi 500ml",
-      message: "Only 2 items left in stock",
-      type: "warning" as const,
-      date: "Today, 2:30 PM"
+  const handleProfitCardClick = async () => {
+    setIsProfitModalOpen(true);
+    if (!profitData && !isProfitLoading) {
+      setIsProfitModalLoading(true);
+      try {
+        const data = await dashboardService.getProfitData();
+        setProfitData(data);
+      } catch (error) {
+        console.error('Failed to fetch profit details:', error);
+      } finally {
+        setIsProfitModalLoading(false);
+      }
     }
-  ];
+  };
 
-  const expiredAlerts = [
-    {
-      id: "1",
-      title: "Yoghurt Cup 100g",
-      message: "Expired on 2025-08-15",
-      type: "error" as const,
-      date: "2 days ago"
+  const handlePopularProductsClick = async () => {
+    setIsPopularProductsModalOpen(true);
+    if (topSellingItems.length === 0 && !isLoading) {
+      setIsPopularProductsLoading(true);
+      try {
+        const today = new Date();
+        const offset = 5.5 * 60 * 60 * 1000;
+        const localDate = new Date(today.getTime() + offset);
+        const dateString = formatDateForAPI(localDate);
+        
+        const data = await salesService.getDailySalesSummary(dateString);
+        setTopSellingItems(data.topSellingItems || []);
+      } catch (error) {
+        console.error('Failed to fetch popular products:', error);
+      } finally {
+        setIsPopularProductsLoading(false);
+      }
     }
-  ];
+  };
 
-  const popularProducts = [
-    { name: "Pepsi 500ml", sold: 45, revenue: "Rs. 8,100.00" },
-    { name: "Milo 200ml", sold: 32, revenue: "Rs. 4,800.00" },
-    { name: "Anchor Milk Powder", sold: 28, revenue: "Rs. 26,600.00" },
-    { name: "Sunlight Soap", sold: 25, revenue: "Rs. 3,000.00" },
-    { name: "Dettol Handwash", sold: 18, revenue: "Rs. 6,120.00" }
-  ];
+  const handleLowStockCardClick = async () => {
+    setIsLowStockModalOpen(true);
+    if (lowStockProducts.length === 0 && !isLowStockLoading) {
+      setIsLowStockModalLoading(true);
+      try {
+        const products = await dashboardService.getLowStockProducts();
+        setLowStockProducts(products);
+      } catch (error) {
+        console.error('Failed to fetch low stock products:', error);
+      } finally {
+        setIsLowStockModalLoading(false);
+      }
+    }
+  };
+
+  const handleExpiringStocksCardClick = async () => {
+    setIsExpiringStocksModalOpen(true);
+    if (expiringStocks.length === 0 && !isExpiringStocksLoading) {
+      setIsExpiringStocksModalLoading(true);
+      try {
+        const data = await dashboardService.getExpiringStocks();
+        setExpiringStocks(data.expiring_stocks);
+      } catch (error) {
+        console.error('Failed to fetch expiring stocks:', error);
+      } finally {
+        setIsExpiringStocksModalLoading(false);
+      }
+    }
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return `Rs. ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today, ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  // Get top 5 expiring items for card display
+  const displayExpiringItems = expiringStocks.slice(0, 5);
+
+  // Get top 5 low stock items for card display
+  const displayLowStockItems = lowStockProducts.slice(0, 5);
+
+  // Get top 5 items for display
+  const displayTopItems = topSellingItems.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -208,36 +344,134 @@ export default function Dashboard() {
           className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
         >
           <MetricCard
-            title="Today GRNs"
+            title="Total GRNs"
             value={isGRNLoading ? "Loading..." : grnsCount.toString()}
             icon={RotateCcw}
             trend={`${grnsCount} ${grnsCount === 1 ? 'transaction' : 'transactions'} today`}
           />
         </div>
-        <MetricCard
-          title="Today Profit"
-          value="Rs. 3,200.00"
-          icon={TrendingUp}
-          trend="+8% from yesterday"
-          trendUp={true}
-        />
+        <div 
+          onClick={handleProfitCardClick}
+          className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
+        >
+          <MetricCard
+            title="Expected Profit"
+            value={isProfitLoading ? "Loading..." : profitData ? formatCurrency(profitData.target_profit) : "Rs. 0.00"}
+            icon={TrendingUp}
+            trend="Click for details"
+            trendUp={true}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
         {/* Low Stock Alerts */}
-        <AlertCard
-          title="Low Stock Alerts"
-          alerts={lowStockAlerts}
-        />
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handleLowStockCardClick}
+        >
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Low Stock Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 sm:p-6">
+            {isLowStockLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : displayLowStockItems.length > 0 ? (
+              displayLowStockItems.map((product) => (
+                <div key={product.productId} className="flex items-start gap-3 p-3 rounded-md bg-warning/5 border border-warning/20">
+                  <AlertTriangle className="h-4 w-4 text-warning mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                      <Badge variant={product.stockQty <= 3 ? "destructive" : "outline"} className="text-xs flex-shrink-0">
+                        {product.stockQty <= 3 ? "Critical" : "Warning"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Only {product.stockQty} {product.stockQty === 1 ? 'item' : 'items'} left in stock
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDate(product.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No low stock alerts
+              </div>
+            )}
+            {lowStockProducts.length > 5 && (
+              <div className="text-center pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  +{lowStockProducts.length - 5} more items. Click to view all
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Expired Items */}
-        <AlertCard
-          title="Expired Items"
-          alerts={expiredAlerts}
-        />
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handleExpiringStocksCardClick}
+        >
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Expiring Items (Next 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 sm:p-6">
+            {isExpiringStocksLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : displayExpiringItems.length > 0 ? (
+              displayExpiringItems.map((stock, index) => (
+                <div key={`${stock.product_id}-${stock.batch_id || index}`} className="flex items-start gap-3 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-sm font-medium text-foreground truncate">{stock.product_name}</p>
+                      <Badge variant="destructive" className="text-xs flex-shrink-0">
+                        Critical
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Expires on {new Date(stock.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stock.stock_qty} {stock.stock_qty === 1 ? 'unit' : 'units'} • {stock.batch_id || 'No batch'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No items expiring soon
+              </div>
+            )}
+            {expiringStocks.length > 5 && (
+              <div className="text-center pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  +{expiringStocks.length - 5} more items. Click to view all
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Popular Products */}
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handlePopularProductsClick}
+        >
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Package className="h-5 w-5 text-accent" />
@@ -245,22 +479,32 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 sm:p-6">
-            {popularProducts.map((product, index) => (
-              <div key={product.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md bg-secondary gap-2 sm:gap-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-xs text-muted-foreground">{product.sold} units sold</p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right ml-9 sm:ml-0">
-                  <p className="text-sm font-medium text-accent">{product.revenue}</p>
-                </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ))}
+            ) : displayTopItems.length > 0 ? (
+              displayTopItems.map((item, index) => (
+                <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md bg-secondary gap-2 sm:gap-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{item.productName}</p>
+                      <p className="text-xs text-muted-foreground">{item.quantity} units sold</p>
+                    </div>
+                  </div>
+                  <div className="text-left sm:text-right ml-9 sm:ml-0">
+                    <p className="text-sm font-medium text-accent">{formatCurrency(item.totalAmount)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No products sold today
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -277,7 +521,7 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Total Products</p>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-warning">12</p>
+              <p className="text-2xl font-bold text-warning">{lowStockProducts.length}</p>
               <p className="text-sm text-muted-foreground">Low Stock Items</p>
             </div>
             <div className="space-y-2">
@@ -312,6 +556,34 @@ export default function Dashboard() {
         onClose={() => setIsGRNModalOpen(false)}
         grnsCount={grnsCount}
         isLoading={isGRNModalLoading}
+      />
+
+      <PopularProductsDetailModal
+        isOpen={isPopularProductsModalOpen}
+        onClose={() => setIsPopularProductsModalOpen(false)}
+        topSellingItems={topSellingItems}
+        isLoading={isPopularProductsLoading}
+      />
+
+      <ProfitDetailModal
+        isOpen={isProfitModalOpen}
+        onClose={() => setIsProfitModalOpen(false)}
+        profitData={profitData}
+        isLoading={isProfitModalLoading}
+      />
+
+      <LowStockDetailModal
+        isOpen={isLowStockModalOpen}
+        onClose={() => setIsLowStockModalOpen(false)}
+        lowStockProducts={lowStockProducts}
+        isLoading={isLowStockModalLoading}
+      />
+
+      <ExpiringStocksDetailModal
+        isOpen={isExpiringStocksModalOpen}
+        onClose={() => setIsExpiringStocksModalOpen(false)}
+        expiringStocks={expiringStocks}
+        isLoading={isExpiringStocksModalLoading}
       />
     </div>
   );
