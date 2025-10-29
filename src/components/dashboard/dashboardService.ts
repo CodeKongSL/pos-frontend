@@ -43,6 +43,21 @@ export interface LowStockProduct {
   updated_at: string;
 }
 
+export interface ExpiringStock {
+  batch_id: string;
+  expiry_date: string;
+  product_id: string;
+  product_name: string;
+  product_status: string;
+  stock_qty: number;
+}
+
+export interface ExpiringStocksResponse {
+  expiring_stocks: ExpiringStock[];
+  now: string;
+  timezone: string;
+}
+
 class DashboardService {
   async getTotalStockQuantity(): Promise<number> {
     try {
@@ -104,6 +119,21 @@ class DashboardService {
       return data;
     } catch (error) {
       console.error('Error fetching low stock products:', error);
+      throw error;
+    }
+  }
+  async getExpiringStocks(): Promise<ExpiringStocksResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/GetExpiringStocksNext7Days`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data: ExpiringStocksResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching expiring stocks:', error);
       throw error;
     }
   }

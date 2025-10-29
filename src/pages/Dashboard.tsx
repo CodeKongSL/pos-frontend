@@ -11,7 +11,8 @@ import { LowStockDetailModal } from "@/components/dashboard/LowStockDetailModal"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { salesService, formatDateForAPI, SalesData } from "@/components/dashboard/salesService";
-import { dashboardService, ProfitResponse, LowStockProduct } from "@/components/dashboard/dashboardService";
+import { dashboardService, ProfitResponse, LowStockProduct, ExpiringStock, ExpiringStocksResponse } from "@/components/dashboard/dashboardService";
+import { ExpiringStocksDetailModal } from "@/components/dashboard/ExpiringStocksDetailModal";
 
 interface TopSellingItem {
   productId: string;
@@ -29,6 +30,8 @@ export default function Dashboard() {
   const [profitData, setProfitData] = useState<ProfitResponse | null>(null);
   const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
+  const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
+  const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -36,6 +39,7 @@ export default function Dashboard() {
   const [isPopularProductsModalOpen, setIsPopularProductsModalOpen] = useState(false);
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
   const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
+  const [isExpiringStocksModalOpen, setIsExpiringStocksModalOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isStockLoading, setIsStockLoading] = useState(true);
@@ -48,6 +52,7 @@ export default function Dashboard() {
   const [isProfitModalLoading, setIsProfitModalLoading] = useState(false);
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
   const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
+  const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
 
   useEffect(() => {
     fetchTodaySales();
@@ -55,6 +60,7 @@ export default function Dashboard() {
     fetchGRNsCount();
     fetchProfitData();
     fetchLowStockProducts();
+    fetchExpiringStocks();
   }, []);
 
   const fetchTodaySales = async () => {
@@ -127,6 +133,18 @@ export default function Dashboard() {
       setLowStockProducts([]);
     } finally {
       setIsLowStockLoading(false);
+    }
+  };
+  const fetchExpiringStocks = async () => {
+    try {
+      setIsExpiringStocksLoading(true);
+      const data = await dashboardService.getExpiringStocks();
+      setExpiringStocks(data.expiring_stocks);
+    } catch (error) {
+      console.error('Failed to fetch expiring stocks:', error);
+      setExpiringStocks([]);
+    } finally {
+      setIsExpiringStocksLoading(false);
     }
   };
 
@@ -230,6 +248,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleExpiringStocksCardClick = async () => {
+    setIsExpiringStocksModalOpen(true);
+    if (expiringStocks.length === 0 && !isExpiringStocksLoading) {
+      setIsExpiringStocksModalLoading(true);
+      try {
+        const data = await dashboardService.getExpiringStocks();
+        setExpiringStocks(data.expiring_stocks);
+      } catch (error) {
+        console.error('Failed to fetch expiring stocks:', error);
+      } finally {
+        setIsExpiringStocksModalLoading(false);
+      }
+    }
+  };
+
   const formatCurrency = (amount: number): string => {
     return `Rs. ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -251,15 +284,8 @@ export default function Dashboard() {
     }
   };
 
-  const expiredAlerts = [
-    {
-      id: "1",
-      title: "Yoghurt Cup 100g",
-      message: "Expired on 2025-08-15",
-      type: "error" as const,
-      date: "2 days ago"
-    }
-  ];
+  // Get top 5 expiring items for card display
+  const displayExpiringItems = expiringStocks.slice(0, 5);
 
   // Get top 5 low stock items for card display
   const displayLowStockItems = lowStockProducts.slice(0, 5);
@@ -391,29 +417,53 @@ export default function Dashboard() {
         </Card>
 
         {/* Expired Items */}
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg"
+          onClick={handleExpiringStocksCardClick}
+        >
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Expired Items
+              Expiring Items (Next 7 Days)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 sm:p-6">
-            {expiredAlerts.map((alert) => (
-              <div key={alert.id} className="flex items-start gap-3 p-3 rounded-md bg-destructive/5 border border-destructive/20">
-                <AlertTriangle className="h-4 w-4 text-destructive mt-1 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-sm font-medium text-foreground truncate">{alert.title}</p>
-                    <Badge variant="destructive" className="text-xs flex-shrink-0">
-                      Critical
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{alert.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{alert.date}</p>
-                </div>
+            {isExpiringStocksLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ))}
+            ) : displayExpiringItems.length > 0 ? (
+              displayExpiringItems.map((stock, index) => (
+                <div key={`${stock.product_id}-${stock.batch_id || index}`} className="flex items-start gap-3 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-sm font-medium text-foreground truncate">{stock.product_name}</p>
+                      <Badge variant="destructive" className="text-xs flex-shrink-0">
+                        Critical
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Expires on {new Date(stock.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stock.stock_qty} {stock.stock_qty === 1 ? 'unit' : 'units'} • {stock.batch_id || 'No batch'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No items expiring soon
+              </div>
+            )}
+            {expiringStocks.length > 5 && (
+              <div className="text-center pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  +{expiringStocks.length - 5} more items. Click to view all
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -527,6 +577,13 @@ export default function Dashboard() {
         onClose={() => setIsLowStockModalOpen(false)}
         lowStockProducts={lowStockProducts}
         isLoading={isLowStockModalLoading}
+      />
+
+      <ExpiringStocksDetailModal
+        isOpen={isExpiringStocksModalOpen}
+        onClose={() => setIsExpiringStocksModalOpen(false)}
+        expiringStocks={expiringStocks}
+        isLoading={isExpiringStocksModalLoading}
       />
     </div>
   );
