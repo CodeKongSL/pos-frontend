@@ -1,4 +1,4 @@
-import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse, BrandPaginationResponse, BrandPaginationParams, BrandCostSummary, TotalCostSummary } from '../models/brand.model';
+import { Brand, BrandCreate, BrandCreateRequest, Product, ProductsByBrandResponse, BrandPaginationResponse, BrandPaginationParams, BrandCostSummary, TotalCostSummary, ProductCountResponse, BrandSearchParams, BrandSearchResponse } from '../models/brand.model';
 
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
 
@@ -9,6 +9,8 @@ const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
 const FIND_BRANDS_BY_CATEGORY_URL = `${API_BASE_URL}/FindBrandsByCategory`;
 const CALCULATE_BRAND_COST_SUMMARY_URL = `${API_BASE_URL}/CalculateBrandCostSummary`;
 const CALCULATE_TOTAL_COST_URL = `${API_BASE_URL}/CalculateTotalCost`;
+const BRAND_PRODUCTS_COUNT_URL = `${API_BASE_URL}/api/brands`;
+const BRAND_SEARCH_URL = `${API_BASE_URL}/api/brands/search`;
 
 export const BrandService = {
   async getAllBrands(params: BrandPaginationParams = { page: 1, per_page: 15 }): Promise<BrandPaginationResponse> {
@@ -49,15 +51,17 @@ export const BrandService = {
     }
   },
 
-  // Method to fetch ALL brands without pagination for dropdowns
+  // DEPRECATED: Use searchBrands() instead for better performance with large datasets
+  // This method kept for backward compatibility only
   async getAllBrandsForDropdown(): Promise<Brand[]> {
     try {
       let allBrands: Brand[] = [];
       let currentPage = 1;
       let hasMorePages = true;
+      const MAX_PAGES = 20; // Safety limit to prevent excessive API calls
 
       // Keep fetching pages until we have all brands
-      while (hasMorePages) {
+      while (hasMorePages && currentPage <= MAX_PAGES) {
         console.log(`Fetching brands page ${currentPage}...`);
         const response = await this.getAllBrands({ page: currentPage, per_page: 50 }); // Use maximum allowed page size
         
@@ -69,6 +73,10 @@ export const BrandService = {
         currentPage++;
         
         console.log(`Page ${currentPage - 1}: Got ${response.data.length} brands. Total so far: ${allBrands.length}/${response.total}`);
+      }
+
+      if (hasMorePages) {
+        console.warn(`Stopped fetching brands at page ${MAX_PAGES}. Total brands may exceed ${allBrands.length}.`);
       }
 
       // Filter out deleted brands
@@ -394,6 +402,75 @@ export const BrandService = {
     } catch (error) {
       console.error('Error fetching total cost summary:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch total cost summary');
+    }
+  },
+
+  // NEW OPTIMIZED ENDPOINTS
+
+  /**
+   * Get product count for a specific brand
+   * Uses new backend endpoint for efficient counting
+   */
+  async getProductCountByBrand(brandId: string): Promise<number> {
+    try {
+      if (!brandId) {
+        throw new Error('Brand ID is required');
+      }
+
+      const url = `${BRAND_PRODUCTS_COUNT_URL}/${encodeURIComponent(brandId)}/products/count`;
+      console.log('Fetching product count for brand:', brandId);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch brand product count');
+      }
+
+      const data: ProductCountResponse = await response.json();
+      console.log(`Brand ${brandId} has ${data.count} products`);
+      return data.count;
+    } catch (error) {
+      console.error('Error fetching brand product count:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Search brands by name (for autocomplete/search functionality)
+   * Much more efficient than fetching all brands for dropdowns
+   */
+  async searchBrands(params: BrandSearchParams): Promise<Brand[]> {
+    try {
+      const queryParams = new URLSearchParams({
+        q: params.q,
+        ...(params.limit && { limit: params.limit.toString() })
+      });
+
+      const url = `${BRAND_SEARCH_URL}?${queryParams.toString()}`;
+      console.log('Searching brands:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search brands');
+      }
+
+      const data: BrandSearchResponse = await response.json();
+      console.log(`Found ${data.data.length} brands matching "${params.q}"`);
+      return data.data;
+    } catch (error) {
+      console.error('Error searching brands:', error);
+      throw error;
     }
   }
 };

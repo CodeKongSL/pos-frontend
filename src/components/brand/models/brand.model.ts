@@ -5,6 +5,7 @@ export interface Brand {
   deleted: boolean;
   created_at: string;
   updated_at: string;
+  product_count?: number; // Added by backend optimization
 }
 
 export interface BrandCreate {
@@ -71,4 +72,17 @@ export interface TotalCostSummary {
   sales_target: number;
   target_profit: number;
   total_spend: number;
+}
+
+export interface ProductCountResponse {
+  count: number;
+}
+
+export interface BrandSearchParams {
+  q: string;
+  limit?: number;
+}
+
+export interface BrandSearchResponse {
+  data: Brand[];
 }
