@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AddSupplierDialog from "../components/AddSupplierDialog";
 import ProductSelectionDialog from "../components/ProductSelectionDialog";
+import UpdateSupplierStatusDialog from "../components/UpdateSupplierStatusDialog";
 import { deleteSupplierById } from "../components/supplier/services/supplier.service";
 import { Search, Plus, Edit, Trash2, MapPin, Phone, Mail, Package, Users, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,35 +23,73 @@ interface Supplier {
   contact: string;
   email: string;
   address: string;
+  status: string;
   deleted: boolean;
   created_at: string;
   updated_at: string;
+}
+
+interface StatusCounts {
+  active: number;
+  inactive: number;
 }
 
 export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]); // Cache all suppliers
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]); // Filtered suppliers for display
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>({ active: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   useEffect(() => {
-    fetchSuppliers();
+    fetchAllSuppliers();
+    fetchStatusCounts();
   }, []);
 
-  const fetchSuppliers = async () => {
+  // Fetch all suppliers once and cache them
+  const fetchAllSuppliers = async () => {
     try {
       setLoading(true);
       const response = await fetch('https://my-go-backend.onrender.com/FindAllSuppliers');
       const data = await response.json();
-      setSuppliers(data || []);
+      const fetchedSuppliers = data || [];
+      setAllSuppliers(fetchedSuppliers); // Cache all suppliers
+      setSuppliers(fetchedSuppliers); // Display all initially
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      setAllSuppliers([]);
       setSuppliers([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Filter suppliers locally from cached data
+  const handleStatusFilterChange = (filter: 'all' | 'active' | 'inactive') => {
+    setStatusFilter(filter);
+    
+    if (filter === 'all') {
+      setSuppliers(allSuppliers);
+    } else {
+      const filtered = allSuppliers.filter(supplier => supplier.status === filter);
+      setSuppliers(filtered);
+    }
+  };
+
+  const fetchStatusCounts = async () => {
+    try {
+      const response = await fetch('https://my-go-backend.onrender.com/GetSupplierStatusCounts');
+      const data = await response.json();
+      setStatusCounts(data || { active: 0, inactive: 0 });
+    } catch (error) {
+      console.error('Error fetching status counts:', error);
+      setStatusCounts({ active: 0, inactive: 0 });
     }
   };
 
@@ -64,8 +103,20 @@ export default function Suppliers() {
       const response = await deleteSupplierById(supplierId);
       
       if (response.ok) {
-        // Refresh the suppliers list after successful deletion
-        await fetchSuppliers();
+        // Update cache by removing deleted supplier
+        const updatedSuppliers = allSuppliers.filter(s => s.supplierId !== supplierId);
+        setAllSuppliers(updatedSuppliers);
+        
+        // Update displayed suppliers based on current filter
+        if (statusFilter === 'all') {
+          setSuppliers(updatedSuppliers);
+        } else {
+          const filtered = updatedSuppliers.filter(s => s.status === statusFilter);
+          setSuppliers(filtered);
+        }
+        
+        // Refresh status counts
+        await fetchStatusCounts();
       } else {
         console.error('Failed to delete supplier');
         alert('Failed to delete supplier. Please try again.');
@@ -88,18 +139,45 @@ export default function Suppliers() {
     setSelectedSupplier(null);
   };
 
+  const handleOpenStatusDialog = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setStatusDialogOpen(true);
+  };
+
+  const handleCloseStatusDialog = () => {
+    setStatusDialogOpen(false);
+    setSelectedSupplier(null);
+  };
+
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusBadge = (deleted: boolean) => {
-    return !deleted 
-      ? <Badge className="bg-success text-success-foreground">Active</Badge>
-      : <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>;
+  const getStatusBadge = (status: string, supplier: Supplier) => {
+    if (status === 'active') {
+      return (
+        <Badge 
+          className="bg-success text-success-foreground cursor-pointer hover:bg-success/80"
+          onClick={() => handleOpenStatusDialog(supplier)}
+        >
+          Active
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge 
+          variant="outline" 
+          className="text-muted-foreground cursor-pointer hover:bg-muted"
+          onClick={() => handleOpenStatusDialog(supplier)}
+        >
+          Inactive
+        </Badge>
+      );
+    }
   };
 
-  const activeSuppliers = suppliers.filter(s => !s.deleted).length;
+  const totalSuppliers = statusCounts.active + statusCounts.inactive;
 
   return (
     <div className="space-y-6">
@@ -107,7 +185,11 @@ export default function Suppliers() {
       <AddSupplierDialog 
         open={addDialogOpen} 
         onClose={() => setAddDialogOpen(false)}
-        onSuccess={fetchSuppliers}
+        onSuccess={() => {
+          // Refresh cache after adding new supplier
+          fetchAllSuppliers();
+          fetchStatusCounts();
+        }}
       />
 
       {/* Product Selection Dialog */}
@@ -117,6 +199,22 @@ export default function Suppliers() {
           onClose={handleCloseProductDialog}
           supplierId={selectedSupplier.supplierId}
           supplierName={selectedSupplier.name}
+        />
+      )}
+
+      {/* Update Supplier Status Dialog */}
+      {selectedSupplier && (
+        <UpdateSupplierStatusDialog
+          open={statusDialogOpen}
+          onClose={handleCloseStatusDialog}
+          supplierId={selectedSupplier.supplierId}
+          supplierName={selectedSupplier.name}
+          currentStatus={selectedSupplier.status}
+          onSuccess={() => {
+            // Refresh cache after status update
+            fetchAllSuppliers();
+            fetchStatusCounts();
+          }}
         />
       )}
       
@@ -134,33 +232,42 @@ export default function Suppliers() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('all')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-foreground">{suppliers.length}</p>
+                <p className="text-2xl font-bold text-foreground">{totalSuppliers}</p>
                 <p className="text-sm text-muted-foreground">Total Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'active' ? 'ring-2 ring-success' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('active')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">{activeSuppliers}</p>
+                <p className="text-2xl font-bold text-success">{statusCounts.active}</p>
                 <p className="text-sm text-muted-foreground">Active Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'inactive' ? 'ring-2 ring-destructive' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('inactive')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-destructive">{suppliers.length - activeSuppliers}</p>
+                <p className="text-2xl font-bold text-destructive">{statusCounts.inactive}</p>
                 <p className="text-sm text-muted-foreground">Inactive Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-destructive" />
@@ -238,7 +345,7 @@ export default function Suppliers() {
                       </div>
                     </TableCell>
                     <TableCell>{new Date(supplier.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{getStatusBadge(supplier.deleted)}</TableCell>
+                    <TableCell>{getStatusBadge(supplier.status, supplier)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm">

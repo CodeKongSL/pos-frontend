@@ -25,6 +25,8 @@ interface TopSellingItem {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  
+  // Cached data states
   const [todaySales, setTodaySales] = useState<number>(0);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
@@ -33,10 +35,14 @@ export default function Dashboard() {
   const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [expiringStocks, setExpiringStocks] = useState<ExpiringStock[]>([]);
-  const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   const [totalProducts, setTotalProducts] = useState<number>(0);
   const [totalCategories, setTotalCategories] = useState<number>(0);
   const [totalBrands, setTotalBrands] = useState<number>(0);
+  const [activeSuppliers, setActiveSuppliers] = useState<number>(0);
+  
+  // Cache timestamp to track data freshness
+  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
   
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -57,22 +63,49 @@ export default function Dashboard() {
   const [isProfitModalLoading, setIsProfitModalLoading] = useState(false);
   const [isPopularProductsLoading, setIsPopularProductsLoading] = useState(false);
   const [isLowStockModalLoading, setIsLowStockModalLoading] = useState(false);
+  const [isExpiringStocksLoading, setIsExpiringStocksLoading] = useState(true);
   const [isExpiringStocksModalLoading, setIsExpiringStocksModalLoading] = useState(false);
   const [isTotalProductsLoading, setIsTotalProductsLoading] = useState(true);
   const [isTotalCategoriesLoading, setIsTotalCategoriesLoading] = useState(true);
   const [isTotalBrandsLoading, setIsTotalBrandsLoading] = useState(true);
+  const [isActiveSuppliersLoading, setIsActiveSuppliersLoading] = useState(true);
 
   useEffect(() => {
-    fetchTodaySales();
-    fetchStockQuantity();
-    fetchGRNsCount();
-    fetchProfitData();
-    fetchLowStockProducts();
-    fetchExpiringStocks();
-    fetchTotalProducts();
-    fetchTotalCategories();
-    fetchTotalBrands();
+    fetchAllData();
   }, []);
+
+  // Check if cache is still valid
+  const isCacheValid = () => {
+    if (!lastFetchTime) return false;
+    const now = new Date();
+    const timeDiff = now.getTime() - lastFetchTime.getTime();
+    return timeDiff < CACHE_DURATION;
+  };
+
+  // Fetch all data at once
+  const fetchAllData = async () => {
+    // If cache is valid, don't fetch again
+    if (isCacheValid()) {
+      console.log('Using cached data');
+      return;
+    }
+
+    console.log('Fetching fresh data');
+    await Promise.all([
+      fetchTodaySales(),
+      fetchStockQuantity(),
+      fetchGRNsCount(),
+      fetchProfitData(),
+      fetchLowStockProducts(),
+      fetchExpiringStocks(),
+      fetchTotalProducts(),
+      fetchTotalCategories(),
+      fetchTotalBrands(),
+      fetchActiveSuppliers(),
+    ]);
+    
+    setLastFetchTime(new Date());
+  };
 
   const fetchTodaySales = async () => {
     try {
@@ -197,9 +230,24 @@ export default function Dashboard() {
     }
   };
 
+  const fetchActiveSuppliers = async () => {
+    try {
+      setIsActiveSuppliersLoading(true);
+      const response = await fetch('https://my-go-backend.onrender.com/GetSupplierStatusCounts');
+      const data = await response.json();
+      setActiveSuppliers(data.active || 0);
+    } catch (error) {
+      console.error('Failed to fetch active suppliers:', error);
+      setActiveSuppliers(0);
+    } finally {
+      setIsActiveSuppliersLoading(false);
+    }
+  };
+
   const handleSalesCardClick = async () => {
     setIsSalesModalOpen(true);
-    if (!salesData) {
+    // Use cached data if available
+    if (!salesData && !isCacheValid()) {
       setIsModalLoading(true);
       try {
         const today = new Date();
@@ -219,7 +267,8 @@ export default function Dashboard() {
 
   const handleStockCardClick = async () => {
     setIsStockModalOpen(true);
-    if (stockQuantity === 0 && !isStockLoading) {
+    // Use cached data if available
+    if (stockQuantity === 0 && !isStockLoading && !isCacheValid()) {
       setIsStockModalLoading(true);
       try {
         const quantity = await dashboardService.getTotalStockQuantity();
@@ -234,7 +283,8 @@ export default function Dashboard() {
 
   const handleGRNCardClick = async () => {
     setIsGRNModalOpen(true);
-    if (grnsCount === 0 && !isGRNLoading) {
+    // Use cached data if available
+    if (grnsCount === 0 && !isGRNLoading && !isCacheValid()) {
       setIsGRNModalLoading(true);
       try {
         const count = await dashboardService.getTotalGRNsCount();
@@ -249,7 +299,8 @@ export default function Dashboard() {
 
   const handleProfitCardClick = async () => {
     setIsProfitModalOpen(true);
-    if (!profitData && !isProfitLoading) {
+    // Use cached data if available
+    if (!profitData && !isProfitLoading && !isCacheValid()) {
       setIsProfitModalLoading(true);
       try {
         const data = await dashboardService.getProfitData();
@@ -264,7 +315,8 @@ export default function Dashboard() {
 
   const handlePopularProductsClick = async () => {
     setIsPopularProductsModalOpen(true);
-    if (topSellingItems.length === 0 && !isLoading) {
+    // Use cached data if available
+    if (topSellingItems.length === 0 && !isLoading && !isCacheValid()) {
       setIsPopularProductsLoading(true);
       try {
         const today = new Date();
@@ -284,7 +336,8 @@ export default function Dashboard() {
 
   const handleLowStockCardClick = async () => {
     setIsLowStockModalOpen(true);
-    if (lowStockProducts.length === 0 && !isLowStockLoading) {
+    // Use cached data if available
+    if (lowStockProducts.length === 0 && !isLowStockLoading && !isCacheValid()) {
       setIsLowStockModalLoading(true);
       try {
         const products = await dashboardService.getLowStockProducts();
@@ -299,7 +352,8 @@ export default function Dashboard() {
 
   const handleExpiringStocksCardClick = async () => {
     setIsExpiringStocksModalOpen(true);
-    if (expiringStocks.length === 0 && !isExpiringStocksLoading) {
+    // Use cached data if available
+    if (expiringStocks.length === 0 && !isExpiringStocksLoading && !isCacheValid()) {
       setIsExpiringStocksModalLoading(true);
       try {
         const data = await dashboardService.getExpiringStocks();
@@ -352,6 +406,10 @@ export default function Dashboard() {
 
   const handleTotalCategoriesClick = () => {
     navigate("/categories");
+  };
+
+  const handleActiveSuppliersClick = () => {
+    navigate("/suppliers");
   };
 
   return (
@@ -589,8 +647,8 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-success">{isTotalCategoriesLoading ? "..." : totalCategories}</p>
               <p className="text-sm text-muted-foreground">Total Categories</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold text-accent">25</p>
+            <div className="space-y-2 cursor-pointer transition hover:scale-105 hover:shadow-lg" onClick={handleActiveSuppliersClick} title="View all suppliers">
+              <p className="text-2xl font-bold text-accent">{isActiveSuppliersLoading ? "..." : activeSuppliers}</p>
               <p className="text-sm text-muted-foreground">Active Suppliers</p>
             </div>
           </div>
