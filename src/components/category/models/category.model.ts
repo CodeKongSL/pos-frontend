@@ -4,6 +4,7 @@ export interface Category {
   deleted: boolean;
   created_at: string;
   updated_at: string;
+  product_count?: number; // Added by backend optimization
 }
 
 export interface CategoryCreate {
@@ -32,4 +33,17 @@ export interface ProductsByCategoryResponse {
   per_page: number;
   next_cursor: string | null;
   has_more: boolean;
+}
+
+export interface ProductCountResponse {
+  count: number;
+}
+
+export interface CategorySearchParams {
+  q: string;
+  limit?: number;
+}
+
+export interface CategorySearchResponse {
+  data: Category[];
 }

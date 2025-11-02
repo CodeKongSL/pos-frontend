@@ -1,4 +1,4 @@
-import { Category, CategoryCreate, CategoryCreateRequest, CategoryPaginationResponse, CategoryPaginationParams, ProductsByCategoryResponse } from '../models/category.model';
+import { Category, CategoryCreate, CategoryCreateRequest, CategoryPaginationResponse, CategoryPaginationParams, ProductsByCategoryResponse, ProductCountResponse, CategorySearchParams, CategorySearchResponse } from '../models/category.model';
 
 // Base URLs for different endpoints
 const API_BASE_URL = 'https://my-go-backend.onrender.com';
@@ -9,6 +9,9 @@ const DELETE_CATEGORY_URL = `${API_BASE_URL}/DeleteCategory`;
 const FIND_ALL_DELETED_PRODUCTS_URL = `${API_BASE_URL}/FindAllDeletedProducts`;
 const RESTORE_PRODUCT_URL = `${API_BASE_URL}/RestoreProduct`;
 const FIND_PRODUCTS_BY_CATEGORY_ID_URL = `${API_BASE_URL}/FindProductsByCategoryId`;
+const PRODUCTS_COUNT_URL = `${API_BASE_URL}/api/products/count`;
+const CATEGORY_PRODUCTS_COUNT_URL = `${API_BASE_URL}/api/categories`;
+const CATEGORY_SEARCH_URL = `${API_BASE_URL}/api/categories/search`;
 
 interface RestoreProductParams {
   productId: string;
@@ -56,15 +59,17 @@ export const CategoryService = {
     }
   },
 
-  // Method to fetch ALL categories without pagination for dropdowns
+  // DEPRECATED: Use searchCategories() instead for better performance with large datasets
+  // This method kept for backward compatibility only
   async getAllCategoriesForDropdown(): Promise<Category[]> {
     try {
       let allCategories: Category[] = [];
       let currentPage = 1;
       let hasMorePages = true;
+      const MAX_PAGES = 20; // Safety limit to prevent excessive API calls
 
       // Keep fetching pages until we have all categories
-      while (hasMorePages) {
+      while (hasMorePages && currentPage <= MAX_PAGES) {
         console.log(`Fetching categories page ${currentPage}...`);
         const response = await this.getAllCategories({ page: currentPage, per_page: 50 }); // Use maximum allowed page size
         
@@ -78,7 +83,11 @@ export const CategoryService = {
         console.log(`Page ${currentPage - 1}: Got ${response.data.length} categories. Total so far: ${allCategories.length}/${response.total}`);
       }
 
-      console.log(`Fetched all ${allCategories.length} categories for dropdown`);
+      if (hasMorePages) {
+        console.warn(`Stopped fetching categories at page ${MAX_PAGES}. Total categories may exceed ${allCategories.length}.`);
+      }
+
+      console.log(`Fetched ${allCategories.length} categories for dropdown`);
       return allCategories;
     } catch (error) {
       console.error('Error fetching all categories for dropdown:', error);
@@ -251,6 +260,102 @@ export const CategoryService = {
     } catch (error) {
       console.error('Error fetching products by category:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to fetch products');
+    }
+  },
+
+  // NEW OPTIMIZED ENDPOINTS
+
+  /**
+   * Get total count of all categorized products (products with categoryId assigned)
+   * Uses new backend endpoint for efficient counting
+   */
+  async getTotalCategorizedProductsCount(): Promise<number> {
+    try {
+      console.log('Fetching total categorized products count...');
+      const response = await fetch(PRODUCTS_COUNT_URL, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch products count');
+      }
+
+      const data: ProductCountResponse = await response.json();
+      console.log('Total categorized products count:', data.count);
+      return data.count;
+    } catch (error) {
+      console.error('Error fetching products count:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get product count for a specific category
+   * Uses new backend endpoint for efficient counting
+   */
+  async getProductCountByCategory(categoryId: string): Promise<number> {
+    try {
+      if (!categoryId) {
+        throw new Error('Category ID is required');
+      }
+
+      const url = `${CATEGORY_PRODUCTS_COUNT_URL}/${encodeURIComponent(categoryId)}/products/count`;
+      console.log('Fetching product count for category:', categoryId);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch category product count');
+      }
+
+      const data: ProductCountResponse = await response.json();
+      console.log(`Category ${categoryId} has ${data.count} products`);
+      return data.count;
+    } catch (error) {
+      console.error('Error fetching category product count:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Search categories by name (for autocomplete/search functionality)
+   * Much more efficient than fetching all categories for dropdowns
+   */
+  async searchCategories(params: CategorySearchParams): Promise<Category[]> {
+    try {
+      const queryParams = new URLSearchParams({
+        q: params.q,
+        ...(params.limit && { limit: params.limit.toString() })
+      });
+
+      const url = `${CATEGORY_SEARCH_URL}?${queryParams.toString()}`;
+      console.log('Searching categories:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search categories');
+      }
+
+      const data: CategorySearchResponse = await response.json();
+      console.log(`Found ${data.data.length} categories matching "${params.q}"`);
+      return data.data;
+    } catch (error) {
+      console.error('Error searching categories:', error);
+      throw error;
     }
   }
 };
