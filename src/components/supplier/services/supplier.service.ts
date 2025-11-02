@@ -48,11 +48,26 @@ export async function findProductsBySupplierID(supplierId: string): Promise<any[
 // Delete supplier by ID
 export async function deleteSupplierById(supplierId: string): Promise<Response> {
   const url = `${BASE_URL}/DeleteSupplierById?supplierId=${supplierId}`;
-  
   return fetch(url, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
     },
   });
+}
+
+// Fetch all suppliers
+export async function findAllSuppliers(): Promise<any[]> {
+  try {
+    const url = `${BASE_URL}/FindAllSuppliers`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch suppliers');
+    }
+    const data = await response.json();
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching suppliers:', error);
+    return [];
+  }
 }

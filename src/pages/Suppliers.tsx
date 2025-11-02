@@ -22,6 +22,7 @@ interface Supplier {
   contact: string;
   email: string;
   address: string;
+  status: string;
   deleted: boolean;
   created_at: string;
   updated_at: string;
@@ -93,13 +94,15 @@ export default function Suppliers() {
     supplier.address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusBadge = (deleted: boolean) => {
-    return !deleted 
-      ? <Badge className="bg-success text-success-foreground">Active</Badge>
-      : <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>;
+  const getStatusBadge = (status: string) => {
+    if (status === 'active') {
+      return <Badge className="bg-success text-success-foreground">Active</Badge>;
+    } else {
+      return <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>;
+    }
   };
 
-  const activeSuppliers = suppliers.filter(s => !s.deleted).length;
+  const activeSuppliers = suppliers.filter(s => s.status === 'active').length;
 
   return (
     <div className="space-y-6">
@@ -238,7 +241,7 @@ export default function Suppliers() {
                       </div>
                     </TableCell>
                     <TableCell>{new Date(supplier.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{getStatusBadge(supplier.deleted)}</TableCell>
+                    <TableCell>{getStatusBadge(supplier.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm">
