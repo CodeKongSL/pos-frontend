@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, Eye, RefreshCcw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Product, PaginatedProductResponse } from "@/components/product/models/product.model";
 import { ProductService } from "@/components/product/services/product.service";
-import { Category } from "@/components/category/models/category.model";
-import { CategoryService } from "@/components/category/services/category.service";
-import { Brand } from "@/components/brand/models/brand.model";
-import { BrandService } from "@/components/brand/services/brand.service";
+// OPTIMIZED: No longer need to import Category/Brand services
+// categoryName and brandName now come directly from product response
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +43,8 @@ interface DisplayProduct {
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
+  // OPTIMIZED: Removed categories and brands state - no longer needed
+  // categoryName and brandName come directly from backend
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -72,15 +70,11 @@ export default function Products() {
       const apiCursor = resetPagination ? undefined : (cursor || undefined);
       console.log('Using API cursor:', apiCursor);
       
-      const [productsRes, categoriesRes, brandsRes] = await Promise.all([
-        ProductService.getAllProducts({ per_page: perPage, cursor: apiCursor }),
-        CategoryService.getAllCategoriesForDropdown(),
-        BrandService.getAllBrandsForDropdown()
-      ]);
+      // OPTIMIZED: No longer fetching all categories and brands
+      // Backend now includes categoryName and brandName in product response
+      const productsRes = await ProductService.getAllProducts({ per_page: perPage, cursor: apiCursor });
       
       console.log('Products response:', productsRes);
-      console.log('Categories response:', categoriesRes);
-      console.log('Brands response:', brandsRes);
       
       // Handle pagination response with additional validation
       if (!productsRes || typeof productsRes !== 'object') {
@@ -116,10 +110,6 @@ export default function Products() {
         setCurrentPage(1);
         console.log('Reset pagination tracking');
       }
-      
-      // Validate and set categories/brands
-      setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
-      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data';
@@ -127,8 +117,6 @@ export default function Products() {
       
       // Set empty states to prevent further errors
       setProducts([]);
-      setCategories([]);
-      setBrands([]);
       setNextCursor(null);
       setHasMore(false);
     } finally {
@@ -154,11 +142,8 @@ export default function Products() {
     setError(null);
     console.log('fetchData called with cursor:', null, 'resetPagination:', true, 'perPage:', newPerPage);
     try {
-      const [productsRes, categoriesRes, brandsRes] = await Promise.all([
-        ProductService.getAllProducts({ per_page: newPerPage, cursor: undefined }),
-        CategoryService.getAllCategoriesForDropdown(),
-        BrandService.getAllBrandsForDropdown()
-      ]);
+      // OPTIMIZED: No longer fetching all categories and brands
+      const productsRes = await ProductService.getAllProducts({ per_page: newPerPage, cursor: undefined });
       
       console.log('Products response:', productsRes);
       
@@ -187,9 +172,6 @@ export default function Products() {
       setCursors([]);
       setCurrentPage(1);
       console.log('Reset pagination tracking');
-      
-      setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
-      setBrands(Array.isArray(brandsRes) ? brandsRes : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data';
@@ -197,8 +179,6 @@ export default function Products() {
       
       // Set empty states to prevent further errors
       setProducts([]);
-      setCategories([]);
-      setBrands([]);
       setNextCursor(null);
       setHasMore(false);
     } finally {
@@ -240,19 +220,14 @@ export default function Products() {
   };
 
   const getProductDisplayData = (product: Product): DisplayProduct => {
-    // Ensure we have arrays to work with
-    const safeCategories = Array.isArray(categories) ? categories : [];
-    const safeBrands = Array.isArray(brands) ? brands : [];
-    
-    const category = safeCategories.find(c => c.categoryId === product.categoryId);
-    const brand = safeBrands.find(b => b.brandId === product.brandId);
-
+    // OPTIMIZED: Use categoryName and brandName from backend response
+    // No longer need to lookup in local arrays
     return {
       productId: product.productId,
       name: product.name,
       totalStock: product.stockQty,
-      categoryName: category ? category.name : 'Uncategorized',
-      brandName: brand?.name || 'Unknown Brand',
+      categoryName: product.categoryName || 'Uncategorized',
+      brandName: product.brandName || 'Unknown Brand',
       sellingPrice: product.sellingPrice
     };
   };
