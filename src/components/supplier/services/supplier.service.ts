@@ -71,3 +71,21 @@ export async function findAllSuppliers(): Promise<any[]> {
     return [];
   }
 }
+
+// Update supplier status
+export async function updateSupplierStatus(
+  supplierId: string,
+  status: string
+): Promise<Response> {
+  const url = `${BASE_URL}/UpdateSupplierStatus`;
+  return fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      supplierId,
+      status,
+    }),
+  });
+}

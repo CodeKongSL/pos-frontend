@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AddSupplierDialog from "../components/AddSupplierDialog";
 import ProductSelectionDialog from "../components/ProductSelectionDialog";
+import UpdateSupplierStatusDialog from "../components/UpdateSupplierStatusDialog";
 import { deleteSupplierById } from "../components/supplier/services/supplier.service";
 import { Search, Plus, Edit, Trash2, MapPin, Phone, Mail, Package, Users, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,16 +91,41 @@ export default function Suppliers() {
     setSelectedSupplier(null);
   };
 
+  const handleOpenStatusDialog = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setStatusDialogOpen(true);
+  };
+
+  const handleCloseStatusDialog = () => {
+    setStatusDialogOpen(false);
+    setSelectedSupplier(null);
+  };
+
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, supplier: Supplier) => {
     if (status === 'active') {
-      return <Badge className="bg-success text-success-foreground">Active</Badge>;
+      return (
+        <Badge 
+          className="bg-success text-success-foreground cursor-pointer hover:bg-success/80"
+          onClick={() => handleOpenStatusDialog(supplier)}
+        >
+          Active
+        </Badge>
+      );
     } else {
-      return <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>;
+      return (
+        <Badge 
+          variant="outline" 
+          className="text-muted-foreground cursor-pointer hover:bg-muted"
+          onClick={() => handleOpenStatusDialog(supplier)}
+        >
+          Inactive
+        </Badge>
+      );
     }
   };
 
@@ -120,6 +147,18 @@ export default function Suppliers() {
           onClose={handleCloseProductDialog}
           supplierId={selectedSupplier.supplierId}
           supplierName={selectedSupplier.name}
+        />
+      )}
+
+      {/* Update Supplier Status Dialog */}
+      {selectedSupplier && (
+        <UpdateSupplierStatusDialog
+          open={statusDialogOpen}
+          onClose={handleCloseStatusDialog}
+          supplierId={selectedSupplier.supplierId}
+          supplierName={selectedSupplier.name}
+          currentStatus={selectedSupplier.status}
+          onSuccess={fetchSuppliers}
         />
       )}
       
@@ -241,7 +280,7 @@ export default function Suppliers() {
                       </div>
                     </TableCell>
                     <TableCell>{new Date(supplier.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{getStatusBadge(supplier.status)}</TableCell>
+                    <TableCell>{getStatusBadge(supplier.status, supplier)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm">
