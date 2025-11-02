@@ -29,6 +29,11 @@ interface Supplier {
   updated_at: string;
 }
 
+interface StatusCounts {
+  active: number;
+  inactive: number;
+}
+
 export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -36,17 +41,23 @@ export default function Suppliers() {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>({ active: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   useEffect(() => {
     fetchSuppliers();
+    fetchStatusCounts();
   }, []);
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = async (status?: 'active' | 'inactive') => {
     try {
       setLoading(true);
-      const response = await fetch('https://my-go-backend.onrender.com/FindAllSuppliers');
+      const url = status 
+        ? `https://my-go-backend.onrender.com/FindAllSuppliers?status=${status}`
+        : 'https://my-go-backend.onrender.com/FindAllSuppliers';
+      const response = await fetch(url);
       const data = await response.json();
       setSuppliers(data || []);
     } catch (error) {
@@ -54,6 +65,26 @@ export default function Suppliers() {
       setSuppliers([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusFilterChange = async (filter: 'all' | 'active' | 'inactive') => {
+    setStatusFilter(filter);
+    if (filter === 'all') {
+      await fetchSuppliers();
+    } else {
+      await fetchSuppliers(filter);
+    }
+  };
+
+  const fetchStatusCounts = async () => {
+    try {
+      const response = await fetch('https://my-go-backend.onrender.com/GetSupplierStatusCounts');
+      const data = await response.json();
+      setStatusCounts(data || { active: 0, inactive: 0 });
+    } catch (error) {
+      console.error('Error fetching status counts:', error);
+      setStatusCounts({ active: 0, inactive: 0 });
     }
   };
 
@@ -67,8 +98,13 @@ export default function Suppliers() {
       const response = await deleteSupplierById(supplierId);
       
       if (response.ok) {
-        // Refresh the suppliers list after successful deletion
-        await fetchSuppliers();
+        // Refresh the suppliers list and status counts after successful deletion
+        if (statusFilter === 'all') {
+          await fetchSuppliers();
+        } else {
+          await fetchSuppliers(statusFilter);
+        }
+        await fetchStatusCounts();
       } else {
         console.error('Failed to delete supplier');
         alert('Failed to delete supplier. Please try again.');
@@ -129,7 +165,7 @@ export default function Suppliers() {
     }
   };
 
-  const activeSuppliers = suppliers.filter(s => s.status === 'active').length;
+  const totalSuppliers = statusCounts.active + statusCounts.inactive;
 
   return (
     <div className="space-y-6">
@@ -137,7 +173,14 @@ export default function Suppliers() {
       <AddSupplierDialog 
         open={addDialogOpen} 
         onClose={() => setAddDialogOpen(false)}
-        onSuccess={fetchSuppliers}
+        onSuccess={() => {
+          if (statusFilter === 'all') {
+            fetchSuppliers();
+          } else {
+            fetchSuppliers(statusFilter);
+          }
+          fetchStatusCounts();
+        }}
       />
 
       {/* Product Selection Dialog */}
@@ -158,7 +201,14 @@ export default function Suppliers() {
           supplierId={selectedSupplier.supplierId}
           supplierName={selectedSupplier.name}
           currentStatus={selectedSupplier.status}
-          onSuccess={fetchSuppliers}
+          onSuccess={() => {
+            if (statusFilter === 'all') {
+              fetchSuppliers();
+            } else {
+              fetchSuppliers(statusFilter);
+            }
+            fetchStatusCounts();
+          }}
         />
       )}
       
@@ -176,33 +226,42 @@ export default function Suppliers() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('all')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-foreground">{suppliers.length}</p>
+                <p className="text-2xl font-bold text-foreground">{totalSuppliers}</p>
                 <p className="text-sm text-muted-foreground">Total Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'active' ? 'ring-2 ring-success' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('active')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-success">{activeSuppliers}</p>
+                <p className="text-2xl font-bold text-success">{statusCounts.active}</p>
                 <p className="text-sm text-muted-foreground">Active Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all ${statusFilter === 'inactive' ? 'ring-2 ring-destructive' : 'hover:shadow-lg'}`}
+          onClick={() => handleStatusFilterChange('inactive')}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-destructive">{suppliers.length - activeSuppliers}</p>
+                <p className="text-2xl font-bold text-destructive">{statusCounts.inactive}</p>
                 <p className="text-sm text-muted-foreground">Inactive Suppliers</p>
               </div>
               <Users className="h-8 w-8 text-destructive" />
