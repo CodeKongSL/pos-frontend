@@ -54,65 +54,13 @@ export default function Brands() {
     }
   };
 
+  // Optimized: Uses new backend endpoint instead of fetching all products
   const fetchSingleBrandProductCount = async (brandId: string) => {
     try {
       setLoadingCounts(prev => ({ ...prev, [brandId]: true }));
-      
-      let totalCount = 0;
-      let hasMore = true;
-      let cursor: string | null = null;
-
-      while (hasMore) {
-        const API_BASE_URL = 'https://my-go-backend.onrender.com';
-        const FIND_PRODUCTS_BY_BRAND_URL = `${API_BASE_URL}/FindProductsByBrandId`;
-        
-        const queryParams = new URLSearchParams();
-        queryParams.append('brandId', brandId);
-        queryParams.append('per_page', '50');
-        
-        if (cursor && cursor.trim() !== '') {
-          queryParams.append('cursor', cursor);
-        }
-        
-        const url = `${FIND_PRODUCTS_BY_BRAND_URL}?${queryParams.toString()}`;
-        console.log('Fetching products for count:', url);
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch products for counting');
-        }
-        
-        const data = await response.json();
-        
-        let products: any[] = [];
-        if (data && typeof data === 'object' && Array.isArray(data.data)) {
-          products = data.data;
-        } else if (Array.isArray(data)) {
-          products = data;
-        }
-        
-        const activeProducts = products.filter(product => product && !product.deleted);
-        totalCount += activeProducts.length;
-        
-        hasMore = data.has_more || false;
-        cursor = data.next_cursor || null;
-        
-        console.log(`Brand ${brandId} - Page processed: Found ${activeProducts.length} products. Total so far: ${totalCount}`);
-        
-        if (totalCount > 10000) {
-          console.warn(`Brand ${brandId} has more than 10,000 products, stopping count at ${totalCount}`);
-          break;
-        }
-      }
-      
-      setBrandProductCounts(prev => ({ ...prev, [brandId]: totalCount }));
-      return totalCount;
+      const count = await BrandService.getProductCountByBrand(brandId);
+      setBrandProductCounts(prev => ({ ...prev, [brandId]: count }));
+      return count;
     } catch (error) {
       console.error(`Error fetching products for brand ${brandId}:`, error);
       setBrandProductCounts(prev => ({ ...prev, [brandId]: 0 }));
@@ -126,6 +74,8 @@ export default function Brands() {
     return brandProductCounts[brandId];
   };
 
+  // No longer needed - product counts now come with the API response
+  // Keeping for edge cases where count might not be in the response
   const fetchSingleBrandCostSummary = async (brandId: string) => {
     try {
       setLoadingCostSummaries(prev => ({ ...prev, [brandId]: true }));
@@ -193,6 +143,15 @@ export default function Brands() {
         }));
       
       setBrands(displayBrands);
+      
+      // Pre-populate brand product counts from the API response
+      const countsFromAPI: Record<string, number> = {};
+      response.data.forEach(brand => {
+        if (brand.product_count !== undefined) {
+          countsFromAPI[brand.brandId] = brand.product_count;
+        }
+      });
+      setBrandProductCounts(countsFromAPI);
       
       // Note: Cost summaries are now loaded on-demand when hovering over brands
       // to improve page load performance

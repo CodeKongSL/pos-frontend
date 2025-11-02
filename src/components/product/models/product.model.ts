@@ -13,7 +13,9 @@ export interface Product {
   name: string;
   barcode?: string;
   categoryId: string;
+  categoryName?: string;  // Added by backend optimization
   brandId: string;
+  brandName?: string;     // Added by backend optimization
   subCategoryId?: string;
   description?: string;
   costPrice: number;

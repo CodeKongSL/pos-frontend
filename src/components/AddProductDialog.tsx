@@ -49,8 +49,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [allBrands, setAllBrands] = useState<Brand[]>([]); // Cache all brands globally
-  const [allBrandsLoaded, setAllBrandsLoaded] = useState(false);
+  // OPTIMIZED: Removed allBrands caching - no longer needed with search endpoint
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +57,9 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching categories...');
-      // Only fetch categories initially, brands will be loaded when category is selected
-      const categoriesRes = await CategoryService.getAllCategoriesForDropdown();
+      console.log('Fetching initial categories...');
+      // OPTIMIZED: Use search endpoint with empty query to get first 50 categories
+      const categoriesRes = await CategoryService.searchCategories({ q: '', limit: 50 });
       console.log('Categories received:', categoriesRes);
       
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
@@ -73,31 +72,20 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     }
   };
 
-  // Fetch brands for a specific category with optimized caching
+  // OPTIMIZED: Fetch brands using search endpoint (no more fetching all brands)
   const fetchBrandsForCategory = async (categoryId: string, forceRefresh: boolean = false) => {
     if (!categoryId) {
       setBrands([]);
       return;
     }
 
-    // If all brands are already loaded and not forcing refresh, filter from cache
-    if (allBrandsLoaded && !forceRefresh) {
-      console.log(`Using cached brands for category ${categoryId}`);
-      const filteredBrands = allBrands.filter(brand => brand.categoryId === categoryId);
-      setBrands(filteredBrands);
-      return;
-    }
-
     try {
       setLoadingBrands(true);
-      console.log(forceRefresh ? 'Force refreshing all brands...' : 'Loading all brands for first time...');
+      console.log(`Fetching brands for category ${categoryId}...`);
       
-      // Load all brands once and cache them
-      const allBrandsRes = await BrandService.getAllBrandsForDropdown();
-      console.log('All brands loaded:', allBrandsRes.length);
-      
-      setAllBrands(allBrandsRes);
-      setAllBrandsLoaded(true);
+      // Use search endpoint with empty query to get first 50 brands
+      const allBrandsRes = await BrandService.searchBrands({ q: '', limit: 50 });
+      console.log('Brands loaded:', allBrandsRes.length);
       
       // Filter brands for the current category
       const filteredBrands = allBrandsRes.filter(brand => brand.categoryId === categoryId);
@@ -302,8 +290,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       });
       setSelectedSubcategories([]);
       setSubcategoryDialogOpen(false);
-      setBrands([]); // Clear current filtered brands when dialog closes
-      // Keep allBrands cache for better performance on reopening
+      setBrands([]); // Clear current brands when dialog closes
     }
     setOpen(newOpen);
   };
@@ -433,12 +420,10 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                     console.log('Brand created callback triggered, refreshing brands...', newBrand);
                     
                     try {
-                      // Clear the cached brands completely
-                      setAllBrands([]);
-                      setAllBrandsLoaded(false);
-                      setBrands([]); // Clear current filtered brands
+                      // OPTIMIZED: No cache to clear, just refresh
+                      setBrands([]); // Clear current brands
                       
-                      // Force refresh brands for the current category
+                      // Refresh brands for the current category
                       await fetchBrandsForCategory(formData.category, true);
                       
                       // Auto-select the newly created brand if available

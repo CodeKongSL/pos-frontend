@@ -77,6 +77,15 @@ const CategoriesPage = () => {
       setProducts([]);
       setDeletedProducts(deletedProductsData);
       
+      // Pre-populate category product counts from the API response
+      const countsFromAPI: Record<string, number> = {};
+      categoriesData.data.forEach(cat => {
+        if (cat.product_count !== undefined) {
+          countsFromAPI[cat.categoryId] = cat.product_count;
+        }
+      });
+      setCategoryProductCounts(countsFromAPI);
+      
       setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -86,24 +95,11 @@ const CategoriesPage = () => {
     }
   };
 
+  // Optimized: Uses new backend endpoint for efficient counting
   const fetchAllProductsCount = async (): Promise<number> => {
     try {
-      let totalCount = 0;
-      let hasMore = true;
-      let cursor: string | null = null;
-
-      while (hasMore) {
-        const response = await ProductService.getAllProducts({
-          per_page: 100,
-          cursor: cursor || undefined
-        });
-        
-        totalCount += response.data.filter(p => !p.deleted && p.categoryId && p.categoryId.trim() !== '').length;
-        hasMore = response.has_more;
-        cursor = response.next_cursor;
-      }
-      
-      return totalCount;
+      const count = await CategoryService.getTotalCategorizedProductsCount();
+      return count;
     } catch (error) {
       console.error('Error fetching products count:', error);
       return 0;
@@ -134,12 +130,13 @@ const CategoriesPage = () => {
     }
   };
 
+  // Optimized: Uses new backend endpoint instead of fetching all products
   const fetchSingleCategoryProductCount = async (categoryId: string) => {
     try {
       setLoadingCounts(prev => ({ ...prev, [categoryId]: true }));
-      const products = await CategoryService.getProductsByCategoryId(categoryId, 1000);
-      setCategoryProductCounts(prev => ({ ...prev, [categoryId]: products.length }));
-      return products.length;
+      const count = await CategoryService.getProductCountByCategory(categoryId);
+      setCategoryProductCounts(prev => ({ ...prev, [categoryId]: count }));
+      return count;
     } catch (error) {
       console.error(`Error fetching products for category ${categoryId}:`, error);
       setCategoryProductCounts(prev => ({ ...prev, [categoryId]: 0 }));
@@ -153,6 +150,8 @@ const CategoriesPage = () => {
     return categoryProductCounts[categoryId];
   };
 
+  // No longer needed - product counts now come with the API response
+  // Keeping for edge cases where count might not be in the response
   const handleCategoryHover = async (categoryId: string) => {
     if (categoryProductCounts[categoryId] === undefined) {
       await fetchSingleCategoryProductCount(categoryId);
