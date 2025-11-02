@@ -61,8 +61,8 @@ export function SubcategorySelectionDialog({
           setPrice('');
           setError(null);
           
-          // Fetch brand details
-          const allBrands = await BrandService.getAllBrandsForDropdown();
+          // OPTIMIZED: Use search endpoint with empty query to get first 50 brands
+          const allBrands = await BrandService.searchBrands({ q: '', limit: 50 });
           const selectedBrand = allBrands.find(b => b.brandId === brandId);
           console.log('Selected brand:', selectedBrand);
           setBrand(selectedBrand || null);

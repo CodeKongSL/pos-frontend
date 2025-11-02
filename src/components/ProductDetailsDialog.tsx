@@ -43,10 +43,10 @@ export function ProductDetailsDialog({ productId, open, onOpenChange }: ProductD
       const productData = await ProductService.getProductById(productId);
       setProduct(productData);
 
-      // Fetch category, brand, and subcategory details
+      // OPTIMIZED: Use search endpoint with empty query to get first 50 brands
       const [categories, brands, subcategories] = await Promise.all([
         CategoryService.getCategoriesOnly(),
-        BrandService.getAllBrandsForDropdown(),
+        BrandService.searchBrands({ q: '', limit: 50 }),
         SubcategoryService.getAllSubcategories()
       ]);
 
