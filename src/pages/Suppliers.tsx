@@ -40,40 +40,45 @@ export default function Suppliers() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]); // Cache all suppliers
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]); // Filtered suppliers for display
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ active: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   useEffect(() => {
-    fetchSuppliers();
+    fetchAllSuppliers();
     fetchStatusCounts();
   }, []);
 
-  const fetchSuppliers = async (status?: 'active' | 'inactive') => {
+  // Fetch all suppliers once and cache them
+  const fetchAllSuppliers = async () => {
     try {
       setLoading(true);
-      const url = status 
-        ? `https://my-go-backend.onrender.com/FindAllSuppliers?status=${status}`
-        : 'https://my-go-backend.onrender.com/FindAllSuppliers';
-      const response = await fetch(url);
+      const response = await fetch('https://my-go-backend.onrender.com/FindAllSuppliers');
       const data = await response.json();
-      setSuppliers(data || []);
+      const fetchedSuppliers = data || [];
+      setAllSuppliers(fetchedSuppliers); // Cache all suppliers
+      setSuppliers(fetchedSuppliers); // Display all initially
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      setAllSuppliers([]);
       setSuppliers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusFilterChange = async (filter: 'all' | 'active' | 'inactive') => {
+  // Filter suppliers locally from cached data
+  const handleStatusFilterChange = (filter: 'all' | 'active' | 'inactive') => {
     setStatusFilter(filter);
+    
     if (filter === 'all') {
-      await fetchSuppliers();
+      setSuppliers(allSuppliers);
     } else {
-      await fetchSuppliers(filter);
+      const filtered = allSuppliers.filter(supplier => supplier.status === filter);
+      setSuppliers(filtered);
     }
   };
 
@@ -98,12 +103,19 @@ export default function Suppliers() {
       const response = await deleteSupplierById(supplierId);
       
       if (response.ok) {
-        // Refresh the suppliers list and status counts after successful deletion
+        // Update cache by removing deleted supplier
+        const updatedSuppliers = allSuppliers.filter(s => s.supplierId !== supplierId);
+        setAllSuppliers(updatedSuppliers);
+        
+        // Update displayed suppliers based on current filter
         if (statusFilter === 'all') {
-          await fetchSuppliers();
+          setSuppliers(updatedSuppliers);
         } else {
-          await fetchSuppliers(statusFilter);
+          const filtered = updatedSuppliers.filter(s => s.status === statusFilter);
+          setSuppliers(filtered);
         }
+        
+        // Refresh status counts
         await fetchStatusCounts();
       } else {
         console.error('Failed to delete supplier');
@@ -174,11 +186,8 @@ export default function Suppliers() {
         open={addDialogOpen} 
         onClose={() => setAddDialogOpen(false)}
         onSuccess={() => {
-          if (statusFilter === 'all') {
-            fetchSuppliers();
-          } else {
-            fetchSuppliers(statusFilter);
-          }
+          // Refresh cache after adding new supplier
+          fetchAllSuppliers();
           fetchStatusCounts();
         }}
       />
@@ -202,11 +211,8 @@ export default function Suppliers() {
           supplierName={selectedSupplier.name}
           currentStatus={selectedSupplier.status}
           onSuccess={() => {
-            if (statusFilter === 'all') {
-              fetchSuppliers();
-            } else {
-              fetchSuppliers(statusFilter);
-            }
+            // Refresh cache after status update
+            fetchAllSuppliers();
             fetchStatusCounts();
           }}
         />
